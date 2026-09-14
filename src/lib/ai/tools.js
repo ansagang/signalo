@@ -1,0 +1,469 @@
+/**
+ * The bot's tools, defined once in a provider-neutral shape.
+ *
+ * Each spec carries a JSON Schema and a `run(input, ctx)` that performs the
+ * write. `ctx` holds { supabase, userId, conversationId, timezone, onEvent }.
+ * The engine adapts these specs to whichever provider the persona uses.
+ */
+
+const DEFAULT_TZ = "Asia/Almaty";
+
+function num(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/** "2026-09-16 14:00" (shop-local) → a real instant. */
+function localToInstant(day, time, timezone) {
+  const iso = `${day}T${time.length === 5 ? time : time.slice(0, 5)}:00`;
+  // Resolve the zone offset for that date, then subtract it.
+  const probe = new Date(`${iso}Z`);
+  const asLocal = new Date(
+    probe.toLocaleString("en-US", { timeZone: timezone || DEFAULT_TZ }),
+  );
+  const asUtc = new Date(probe.toLocaleString("en-US", { timeZone: "UTC" }));
+  return new Date(probe.getTime() + (asUtc.getTime() - asLocal.getTime()));
+}
+
+function formatSlot(iso, timezone) {
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    timeZone: timezone || DEFAULT_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export const toolSpecs = [
+  /* ───────────────────────────── selling ───────────────────────────── */
+  {
+    name: "create_order",
+    description:
+      "Record a confirmed order for physical products. Call only after the customer has agreed to buy specific items AND given a name or contact. Never call it to check whether they want something.",
+    input_schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          description: "The items the customer confirmed.",
+          items: {
+            type: "object",
+            properties: {
+              product_id: {
+                type: "string",
+                description: "The product_id shown in brackets in the catalogue. Required for stock to be tracked.",
+              },
+              title: { type: "string", description: "Item name as the customer knows it." },
+              quantity: { type: "integer", minimum: 1, default: 1 },
+              price: { type: "number", description: "Unit price exactly as the catalogue states it." },
+            },
+            required: ["title", "quantity"],
+            additionalProperties: false,
+          },
+        },
+        currency: { type: "string", default: "kzt" },
+        customer_name: { type: "string" },
+        customer_contact: {
+          type: "string",
+          description: "Phone, Telegram handle, or email. Never card details.",
+        },
+        note: { type: "string", description: "Colour, size, delivery preference, anything else specified." },
+      },
+      required: ["items"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      const items = (input.items || []).map((i) => ({
+        product_id: i.product_id || null,
+        title: i.title,
+        quantity: Math.max(1, num(i.quantity, 1)),
+        price: i.price === undefined ? null : num(i.price, 0),
+      }));
+
+      if (!items.length) {
+        return { ok: false, error: "No items given — ask the customer what they want first." };
+      }
+
+      const { data, error } = await ctx.supabase.rpc("record_order", {
+        p_user_id: ctx.userId,
+        p_items: items,
+        p_currency: (input.currency || "kzt").toLowerCase(),
+        p_conversation_id: ctx.conversationId,
+        p_customer_name: input.customer_name || null,
+        p_customer_contact: input.customer_contact || null,
+        p_note: input.note || null,
+      });
+
+      if (error) {
+        const msg = error.message || "";
+        if (msg.includes("insufficient_stock")) {
+          const [, name, left] = msg.split("insufficient_stock:")[1]?.split(":") || [];
+          return {
+            ok: false,
+            error: `Not enough stock. Tell the customer honestly how many are left and offer an alternative from the catalogue.`,
+            detail: msg,
+          };
+        }
+        return { ok: false, error: msg };
+      }
+
+      const order = Array.isArray(data) ? data[0] : data;
+
+      if (input.customer_name || input.customer_contact) {
+        await ctx.supabase
+          .from("conversations")
+          .update({
+            ...(input.customer_name ? { customer_name: input.customer_name } : {}),
+            ...(input.customer_contact ? { phone: input.customer_contact } : {}),
+            last_intent: "order",
+          })
+          .eq("id", ctx.conversationId);
+      }
+
+      ctx.onEvent?.({ type: "order", order });
+
+      return {
+        ok: true,
+        order_id: order.id,
+        total: order.total,
+        currency: order.currency,
+        message:
+          "Order recorded and stock updated. Confirm the total back to the customer and say a colleague will follow up about payment and delivery.",
+      };
+    },
+  },
+
+  /* ─────────────────────────── appointments ────────────────────────── */
+  {
+    name: "check_availability",
+    description:
+      "List free start times for a bookable service on one day. Always call this before offering a time — never invent availability. Returns shop-local times.",
+    input_schema: {
+      type: "object",
+      properties: {
+        service_id: { type: "string", description: "The service_id from the catalogue." },
+        date: { type: "string", description: "The day to check, as YYYY-MM-DD." },
+        staff_name: {
+          type: "string",
+          description: "Only if the customer asked for a specific master by name.",
+        },
+      },
+      required: ["service_id", "date"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "")) {
+        return { ok: false, error: "date must be YYYY-MM-DD." };
+      }
+
+      let staffId = null;
+      if (input.staff_name) {
+        const { data: staff } = await ctx.supabase
+          .from("staff")
+          .select("id, name")
+          .eq("user_id", ctx.userId)
+          .eq("active", true)
+          .ilike("name", `%${input.staff_name}%`)
+          .maybeSingle();
+        if (!staff) {
+          return { ok: false, error: `No master called "${input.staff_name}". Offer the next free time with anyone instead.` };
+        }
+        staffId = staff.id;
+      }
+
+      const { data, error } = await ctx.supabase.rpc("available_slots", {
+        p_user_id: ctx.userId,
+        p_service_id: input.service_id,
+        p_day: input.date,
+        p_staff_id: staffId,
+        p_timezone: ctx.timezone || DEFAULT_TZ,
+      });
+
+      if (error) return { ok: false, error: error.message };
+
+      const rows = data || [];
+      if (!rows.length) {
+        return {
+          ok: true,
+          slots: [],
+          message:
+            "Nothing free that day — the shop is closed, no master who does this service is working, or it is fully booked. Offer a different date.",
+        };
+      }
+
+      // Collapse to one entry per start time, listing who is free for it.
+      const byTime = new Map();
+      for (const r of rows) {
+        const label = formatSlot(r.slot_start, ctx.timezone);
+        if (!byTime.has(label)) byTime.set(label, []);
+        byTime.get(label).push(r.staff_name);
+      }
+      const slots = [...byTime.keys()].sort();
+
+      // Thirty times is not a helpful answer, but taking the FIRST eight made
+      // the model believe the day ended at the eighth slot and tell customers
+      // the afternoon was booked out. Sample across the whole day instead, and
+      // state the real range explicitly.
+      const SAMPLE = 8;
+      const spread =
+        slots.length <= SAMPLE
+          ? slots
+          : Array.from({ length: SAMPLE }, (_, i) =>
+              slots[Math.round((i * (slots.length - 1)) / (SAMPLE - 1))],
+            );
+
+      return {
+        ok: true,
+        date: input.date,
+        earliest: slots[0],
+        latest: slots[slots.length - 1],
+        total_free: slots.length,
+        slots: spread.map((t) => ({ time: t, masters: byTime.get(t) })),
+        message:
+          `${slots.length} start times are free, from ${slots[0]} to ${slots[slots.length - 1]}. ` +
+          "These are the shop's own bookable start times — offer them exactly as given and never a time in between. " +
+          "The list is a sample across the day, so do not tell the customer a part of the day is unavailable. " +
+          "Offer two or three that suit what they asked for, and name the master only if they asked for one.",
+      };
+    },
+  },
+
+  {
+    name: "book_appointment",
+    description:
+      "Book a service for a customer at a specific time. Only call after check_availability returned that time AND the customer confirmed it AND gave a name and contact.",
+    input_schema: {
+      type: "object",
+      properties: {
+        service_id: { type: "string" },
+        date: { type: "string", description: "YYYY-MM-DD" },
+        time: { type: "string", description: "HH:MM in shop-local time, exactly as offered." },
+        customer_name: { type: "string" },
+        customer_contact: { type: "string", description: "Phone, Telegram handle, or email." },
+        staff_name: { type: "string", description: "Only if the customer asked for a specific master." },
+        note: { type: "string" },
+      },
+      required: ["service_id", "date", "time", "customer_name", "customer_contact"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "") || !/^\d{2}:\d{2}/.test(input.time || "")) {
+        return { ok: false, error: "date must be YYYY-MM-DD and time HH:MM." };
+      }
+
+      let staffId = null;
+      if (input.staff_name) {
+        const { data: staff } = await ctx.supabase
+          .from("staff")
+          .select("id")
+          .eq("user_id", ctx.userId)
+          .eq("active", true)
+          .ilike("name", `%${input.staff_name}%`)
+          .maybeSingle();
+        staffId = staff?.id || null;
+      }
+
+      const startsAt = localToInstant(input.date, input.time, ctx.timezone);
+
+      const { data, error } = await ctx.supabase.rpc("book_appointment", {
+        p_user_id: ctx.userId,
+        p_service_id: input.service_id,
+        p_starts_at: startsAt.toISOString(),
+        p_staff_id: staffId,
+        p_conversation_id: ctx.conversationId,
+        p_customer_name: input.customer_name || null,
+        p_customer_contact: input.customer_contact || null,
+        p_note: input.note || null,
+        p_timezone: ctx.timezone || DEFAULT_TZ,
+      });
+
+      if (error) {
+        if ((error.message || "").includes("slot_taken")) {
+          return {
+            ok: false,
+            error:
+              "That time is not bookable — it was taken, or it is not one of the shop's start times. Call check_availability again and offer only what it returns.",
+          };
+        }
+        if ((error.message || "").includes("service_not_found")) {
+          return { ok: false, error: "That service does not exist. Use a service_id from the catalogue." };
+        }
+        return { ok: false, error: error.message };
+      }
+
+      const appt = Array.isArray(data) ? data[0] : data;
+
+      await ctx.supabase
+        .from("conversations")
+        .update({
+          customer_name: input.customer_name,
+          phone: input.customer_contact,
+          last_intent: "appointment",
+        })
+        .eq("id", ctx.conversationId);
+
+      ctx.onEvent?.({ type: "appointment", appointment: appt });
+
+      return {
+        ok: true,
+        appointment_id: appt.id,
+        starts_at: appt.starts_at,
+        message: `Booked for ${input.date} at ${input.time}. Confirm that back to the customer with the service name and price.`,
+      };
+    },
+  },
+
+  /* ──────────────────────────── showing things ─────────────────────── */
+  {
+    name: "show_items",
+    description:
+      "Show the customer picture cards for products or services you are recommending. Call this alongside your reply whenever you name specific items that have a photo — a customer buying something visual wants to see it. Do not describe the cards in your text; they render on their own.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_ids: {
+          type: "array",
+          description: "product_id values from the catalogue, at most three.",
+          items: { type: "string" },
+        },
+        service_ids: {
+          type: "array",
+          description: "service_id values from the catalogue, at most three.",
+          items: { type: "string" },
+        },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      const productIds = (input.product_ids || []).slice(0, 3);
+      const serviceIds = (input.service_ids || []).slice(0, 3);
+      if (!productIds.length && !serviceIds.length) {
+        return { ok: false, error: "Give at least one product_id or service_id." };
+      }
+
+      const [products, services] = await Promise.all([
+        productIds.length
+          ? ctx.supabase
+              .from("products")
+              .select("id, name, description, price, currency, stock, track_stock, image_url")
+              .eq("user_id", ctx.userId)
+              .eq("active", true)
+              .in("id", productIds)
+          : { data: [] },
+        serviceIds.length
+          ? ctx.supabase
+              .from("services")
+              .select("id, name, description, price, currency, duration_min, image_url")
+              .eq("user_id", ctx.userId)
+              .eq("active", true)
+              .in("id", serviceIds)
+          : { data: [] },
+      ]);
+
+      const cards = [
+        ...(products.data || []).map((p) => ({ kind: "product", ...p })),
+        ...(services.data || []).map((s) => ({ kind: "service", ...s })),
+      ];
+
+      if (!cards.length) {
+        return { ok: false, error: "None of those ids exist. Use ids from the catalogue." };
+      }
+
+      ctx.onEvent?.({ type: "cards", cards });
+      return {
+        ok: true,
+        shown: cards.length,
+        message: "Cards are on screen. Keep your reply short — do not list the prices again.",
+      };
+    },
+  },
+
+  /* ────────────────────────────── admin ────────────────────────────── */
+  {
+    name: "capture_contact",
+    description:
+      "Save the customer's name or contact detail as soon as you learn it, even if they have not decided to buy or book yet.",
+    input_schema: {
+      type: "object",
+      properties: {
+        customer_name: { type: "string" },
+        customer_contact: { type: "string" },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      const patch = {};
+      if (input.customer_name) patch.customer_name = input.customer_name;
+      if (input.customer_contact) patch.phone = input.customer_contact;
+      if (!Object.keys(patch).length) return { ok: false, error: "Nothing to save." };
+
+      patch.last_intent = "lead";
+
+      const { error } = await ctx.supabase
+        .from("conversations")
+        .update(patch)
+        .eq("id", ctx.conversationId);
+
+      if (error) return { ok: false, error: error.message };
+
+      ctx.onEvent?.({ type: "contact", contact: patch });
+      return { ok: true, message: "Saved. Carry on naturally." };
+    },
+  },
+
+  {
+    name: "request_human",
+    description:
+      "Hand the conversation to a human colleague. Use for escalation triggers, complaints, billing or legal issues, or anything the catalogue cannot answer.",
+    input_schema: {
+      type: "object",
+      properties: { reason: { type: "string", description: "One sentence on why this needs a person." } },
+      required: ["reason"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      const { error } = await ctx.supabase
+        .from("conversations")
+        .update({ handoff: true, status: "escalated", last_intent: "handoff" })
+        .eq("id", ctx.conversationId);
+
+      if (error) return { ok: false, error: error.message };
+
+      ctx.onEvent?.({ type: "handoff", reason: input.reason });
+      return {
+        ok: true,
+        message: "A colleague has been notified. Tell the customer someone will pick this up, then stop selling.",
+      };
+    },
+  },
+];
+
+export const toolsByName = Object.fromEntries(toolSpecs.map((t) => [t.name, t]));
+
+export async function runTool(name, input, ctx) {
+  const spec = toolsByName[name];
+  if (!spec) return { ok: false, error: `Unknown tool: ${name}` };
+  try {
+    return await spec.run(input || {}, ctx);
+  } catch (err) {
+    return { ok: false, error: err?.message || "Tool failed." };
+  }
+}
+
+/** Anthropic Messages API tool definitions. */
+export function anthropicTools() {
+  return toolSpecs.map(({ name, description, input_schema }) => ({
+    name,
+    description,
+    input_schema,
+  }));
+}
+
+/** OpenAI chat-completions function definitions. */
+export function openaiTools() {
+  return toolSpecs.map(({ name, description, input_schema }) => ({
+    type: "function",
+    function: { name, description, parameters: input_schema },
+  }));
+}

@@ -1,0 +1,510 @@
+"use client";
+
+import { useState } from "react";
+import {
+  useChannels, useCreateChannel, useUpdateChannel, useDeleteChannel,
+  useRotateKey, useConnectTelegram,
+} from "@/hooks/use-channels";
+import { usePersonas } from "@/hooks/use-personas";
+import { cn } from "@/lib/utils";
+import { showError, showSuccess } from "@/lib/toast";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Panel, EmptyState, Loading, Segmented, Toggle, Hint } from "@/components/ui/page";
+import {
+  CheckIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon, PlusIcon,
+  RefreshCwIcon, SendIcon, Trash2Icon,
+} from "lucide-react";
+
+const WIDGET_DEFAULTS = {
+  accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
+  launcherLabel: "", title: "", autoOpen: false, autoOpenDelay: 8, greetingBubble: "",
+};
+
+const SWATCHES = ["#00d26a", "#0090ff", "#ff5fa2", "#ff6a00", "#7c3aed", "#ededed"];
+
+function CopyBox({ value, label }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div>
+      {label && <p className="text-[11px] font-mono uppercase tracking-wider text-muted mb-1.5">{label}</p>}
+      <div className="relative">
+        <pre className="bg-primary border border-secondary-transparent rounded-button px-3 py-2.5 pr-11 text-[11px] text-secondary font-mono overflow-x-auto whitespace-pre-wrap break-all">
+          {value}
+        </pre>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(value);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            } catch {
+              showError("Could not copy — select the text manually.");
+            }
+          }}
+          aria-label="Copy"
+          className={cn(
+            "absolute top-2 right-2 size-7 grid place-items-center rounded-button transition-colors cursor-pointer",
+            copied ? "text-success" : "text-muted hover:text-fg hover:bg-hover",
+          )}
+        >
+          {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function ChannelsManager({ language, origin }) {
+  const p = language.app.pages.channels;
+  const res = language.app.res;
+
+  const { data: channels, isLoading } = useChannels();
+  const { data: personas } = usePersonas();
+  const createChannel = useCreateChannel();
+
+  const base = origin || (typeof window !== "undefined" ? window.location.origin : "");
+
+  function add(type) {
+    const persona = personas?.find((x) => x.is_active) || personas?.[0];
+    if (!persona) return showError(p.needPersona);
+    createChannel.mutate(
+      { type, persona_id: persona.id },
+      {
+        onSuccess: (r) => (r?.success === false ? showError(r.message) : showSuccess(res.channelCreated)),
+        onError: () => showError(res.channelCreateError),
+      },
+    );
+  }
+
+  if (isLoading) return <Loading />;
+
+  return (
+    <div className="space-y-3">
+      {!channels?.length && (
+        <EmptyState icon={GlobeIcon} title={p.empty.title} description={p.empty.subtitle} />
+      )}
+
+      {channels?.map((channel) => (
+        <ChannelCard
+          key={channel.id}
+          channel={channel}
+          personas={personas}
+          p={p}
+          res={res}
+          base={base}
+        />
+      ))}
+
+      <div className="flex gap-2 pt-1">
+        <Button variant="ghost" onClick={() => add("web")} disabled={createChannel.isPending}>
+          <PlusIcon className="size-4" />
+          {p.types.web.add}
+        </Button>
+        <Button variant="ghost" onClick={() => add("telegram")} disabled={createChannel.isPending}>
+          <PlusIcon className="size-4" />
+          {p.types.telegram.add}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ChannelCard({ channel, personas, p, res, base }) {
+  const updateChannel = useUpdateChannel();
+  const deleteChannel = useDeleteChannel();
+  const rotateKey = useRotateKey();
+  const connectTelegram = useConnectTelegram();
+
+  const isWeb = channel.type === "web";
+  const [tab, setTab] = useState("setup");
+  const [token, setToken] = useState("");
+  const [editingToken, setEditingToken] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [config, setConfig] = useState({ ...WIDGET_DEFAULTS, ...(channel.config || {}) });
+
+  const meta = isWeb ? p.types.web : p.types.telegram;
+  const snippet = `<script src="${base}/widget.js" data-key="${channel.public_key}" defer></script>`;
+
+  function patch(updates, successMessage) {
+    updateChannel.mutate(
+      { id: channel.id, updates },
+      {
+        onSuccess: (r) =>
+          r?.success === false ? showError(r.message) : successMessage && showSuccess(successMessage),
+        onError: () => showError(res.channelUpdateError),
+      },
+    );
+  }
+
+  const setCfg = (key, value) => setConfig((c) => ({ ...c, [key]: value }));
+
+  const tabs = isWeb
+    ? [
+        { value: "setup", label: p.tabs.setup },
+        { value: "look", label: p.tabs.look },
+        { value: "install", label: p.tabs.install },
+      ]
+    : [{ value: "setup", label: p.tabs.setup }];
+
+  return (
+    <Panel>
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-secondary-transparent">
+        <div className="size-9 rounded-button bg-secondary-transparent2 grid place-items-center text-secondary shrink-0">
+          {isWeb ? <GlobeIcon className="size-4" /> : <SendIcon className="size-4" />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-fg truncate">{channel.name}</span>
+            <Badge className={channel.is_active ? "bg-success/10 text-success" : "bg-muted/10 text-muted"}>
+              {channel.is_active ? p.active : p.paused}
+            </Badge>
+            {!isWeb && (
+              // Token and webhook are separate states — a channel can have a
+              // token saved and still not be receiving anything.
+              <Badge
+                className={
+                  !channel.has_token
+                    ? "bg-warning/10 text-warning"
+                    : channel.has_webhook
+                      ? "bg-info/10 text-info"
+                      : "bg-secondary-transparent2 text-secondary"
+                }
+              >
+                {!channel.has_token
+                  ? p.tokenMissing
+                  : channel.has_webhook
+                    ? p.connected
+                    : p.notConnected}
+              </Badge>
+            )}
+          </div>
+          <p className="text-[11px] text-muted mt-0.5">{meta.desc}</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => patch({ is_active: !channel.is_active }, res.channelUpdated)}
+          className="text-[11px] text-secondary hover:text-fg transition-colors cursor-pointer px-2 py-1"
+        >
+          {channel.is_active ? p.pause : p.resume}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          aria-label={p.delete}
+          className="size-7 grid place-items-center rounded-button text-muted hover:text-error hover:bg-error/10 cursor-pointer"
+        >
+          <Trash2Icon className="size-3.5" />
+        </button>
+      </div>
+
+      {tabs.length > 1 && (
+        <div className="px-5 pt-4">
+          <Segmented value={tab} onChange={setTab} options={tabs} className="w-fit" />
+        </div>
+      )}
+
+      <div className="px-5 py-4">
+        {tab === "setup" && (
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <Field label={p.fields.name} className="flex-1">
+                <Input
+                  defaultValue={channel.name}
+                  onBlur={(e) =>
+                    e.target.value !== channel.name && patch({ name: e.target.value }, res.channelUpdated)
+                  }
+                />
+              </Field>
+              <Field label={p.fields.persona} className="flex-1">
+                <NativeSelect
+                  value={channel.persona_id || ""}
+                  onChange={(e) => patch({ persona_id: e.target.value }, res.channelUpdated)}
+                >
+                  <NativeSelectOption value="">{p.fields.personaPlaceholder}</NativeSelectOption>
+                  {personas?.map((persona) => (
+                    <NativeSelectOption key={persona.id} value={persona.id}>
+                      {persona.icon} {persona.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+            </div>
+            <Hint>{p.fields.personaHint}</Hint>
+
+            {!isWeb && (
+              <>
+                <Field label={p.fields.botToken}>
+                  {channel.has_token && !editingToken ? (
+                    // An empty password box gave no sign a token was saved.
+                    // Show which bot it is, and make replacing it deliberate.
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-secondary-transparent2 border border-secondary-transparent rounded-button px-3 h-10 inline-flex items-center text-[12px] font-mono text-secondary truncate">
+                        {channel.token_hint}
+                      </code>
+                      <Button variant="ghost" size="sm" type="button" onClick={() => setEditingToken(true)}>
+                        {p.fields.replaceToken}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="flex-1"
+                        autoFocus={editingToken}
+                        placeholder={p.fields.botTokenPlaceholder}
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!token.trim() || updateChannel.isPending}
+                        onClick={() => {
+                          patch({ bot_token: token.trim() }, res.tokenSaved);
+                          setToken("");
+                          setEditingToken(false);
+                        }}
+                      >
+                        {p.fields.saveToken}
+                      </Button>
+                      {channel.has_token && (
+                        <Button variant="ghost" size="sm" type="button"
+                          onClick={() => { setToken(""); setEditingToken(false); }}>
+                          {p.confirmDelete.cancel}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Field>
+                <Hint>{p.telegramHelp}</Hint>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={connectTelegram.isPending || !channel.has_token}
+                  onClick={() =>
+                    connectTelegram.mutate(channel.id, {
+                      onSuccess: (r) =>
+                        r?.success === false ? showError(r.message) : showSuccess(res.telegramConnected),
+                      onError: () => showError(res.telegramConnectError),
+                    })
+                  }
+                >
+                  {connectTelegram.isPending ? (
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <SendIcon className="size-3.5" />
+                  )}
+                  {p.connect}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === "look" && (
+          <div className="grid gap-6 laptop-2:grid-cols-[1fr_260px]">
+            <div className="space-y-4">
+              <Field label={p.look.accent}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {SWATCHES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCfg("accent", c)}
+                      aria-label={c}
+                      style={{ background: c }}
+                      className={cn(
+                        "size-7 rounded-full cursor-pointer transition-transform",
+                        config.accent === c ? "ring-2 ring-fg ring-offset-2 ring-offset-[var(--color-card)]" : "hover:scale-110",
+                      )}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={config.accent}
+                    onChange={(e) => setCfg("accent", e.target.value)}
+                    className="size-7 rounded-full bg-transparent border border-secondary-transparent cursor-pointer"
+                  />
+                </div>
+              </Field>
+
+              <div className="flex gap-3">
+                <Field label={p.look.position} className="flex-1">
+                  <NativeSelect value={config.position} onChange={(e) => setCfg("position", e.target.value)}>
+                    <NativeSelectOption value="right">{p.look.right}</NativeSelectOption>
+                    <NativeSelectOption value="left">{p.look.left}</NativeSelectOption>
+                  </NativeSelect>
+                </Field>
+                <Field label={p.look.size} className="flex-1">
+                  <Input type="number" min="44" max="80" value={config.size} onChange={(e) => setCfg("size", e.target.value)} />
+                </Field>
+                <Field label={p.look.offset} className="flex-1">
+                  <Input type="number" min="0" max="80" value={config.offset} onChange={(e) => setCfg("offset", e.target.value)} />
+                </Field>
+              </div>
+
+              <Field label={p.look.title}>
+                <Input value={config.title} onChange={(e) => setCfg("title", e.target.value)} placeholder={channel.name} />
+              </Field>
+
+              <Field label={p.look.launcherLabel}>
+                <Input value={config.launcherLabel} onChange={(e) => setCfg("launcherLabel", e.target.value)} placeholder={p.look.launcherLabelPlaceholder} />
+                <Hint>{p.look.launcherLabelHint}</Hint>
+              </Field>
+
+              <Field label={p.look.greetingBubble}>
+                <Input value={config.greetingBubble} onChange={(e) => setCfg("greetingBubble", e.target.value)} placeholder={p.look.greetingBubblePlaceholder} />
+                <Hint>{p.look.greetingBubbleHint}</Hint>
+              </Field>
+
+              <Toggle
+                checked={config.autoOpen}
+                onChange={(v) => setCfg("autoOpen", v)}
+                label={p.look.autoOpen}
+                hint={p.look.autoOpenHint}
+              />
+
+              {config.autoOpen && (
+                <Field label={p.look.autoOpenDelay}>
+                  <Input type="number" min="2" max="120" value={config.autoOpenDelay} onChange={(e) => setCfg("autoOpenDelay", e.target.value)} />
+                </Field>
+              )}
+
+              <Button
+                disabled={updateChannel.isPending}
+                onClick={() =>
+                  patch(
+                    {
+                      config: {
+                        ...config,
+                        size: Number(config.size) || 56,
+                        offset: Number(config.offset) || 20,
+                        autoOpenDelay: Number(config.autoOpenDelay) || 8,
+                      },
+                    },
+                    res.channelUpdated,
+                  )
+                }
+              >
+                {updateChannel.isPending ? <LoaderIcon className="size-4 animate-spin" /> : p.look.save}
+              </Button>
+            </div>
+
+            <WidgetPreview config={config} channel={channel} p={p} />
+          </div>
+        )}
+
+        {tab === "install" && (
+          <div className="space-y-4">
+            <CopyBox label={p.embedLabel} value={snippet} />
+            <Hint>{p.installHint}</Hint>
+            <CopyBox label={p.keyLabel} value={channel.public_key} />
+            <div className="flex items-center gap-4">
+              <a
+                href={`${base}/c/${channel.public_key}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[12px] text-accent hover:underline inline-flex items-center gap-1.5"
+              >
+                <ExternalLinkIcon className="size-3" />
+                {p.testLink}
+              </a>
+              <button
+                type="button"
+                onClick={() => rotateKey.mutate(channel.id, { onSuccess: () => showSuccess(res.keyRotated) })}
+                className="text-[12px] text-muted hover:text-fg inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCwIcon className="size-3" />
+                {p.rotateKey}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{p.confirmDelete.title}</DialogTitle>
+          </DialogHeader>
+          <p className="px-6 text-[13px] text-secondary leading-relaxed">{p.confirmDelete.body}</p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>{p.confirmDelete.cancel}</Button>
+            <Button
+              onClick={() =>
+                deleteChannel.mutate(channel.id, {
+                  onSuccess: () => {
+                    setConfirmDelete(false);
+                    showSuccess(res.channelDeleted);
+                  },
+                  onError: () => showError(res.channelDeleteError),
+                })
+              }
+            >
+              {p.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Panel>
+  );
+}
+
+/** A miniature of the customer's page so changes are visible before saving. */
+function WidgetPreview({ config, channel, p }) {
+  const left = config.position === "left";
+  const size = Math.max(36, Math.min(Number(config.size) || 56, 72)) * 0.7;
+
+  return (
+    <div>
+      <p className="text-[11px] font-mono uppercase tracking-wider text-muted mb-1.5">{p.look.preview}</p>
+      <div className="relative h-[280px] rounded-module border border-secondary-transparent bg-[#141414] overflow-hidden">
+        {/* stand-in for the customer's own page */}
+        <div className="p-3 space-y-2 opacity-30">
+          <div className="h-2 w-2/3 rounded bg-white/25" />
+          <div className="h-2 w-full rounded bg-white/15" />
+          <div className="h-2 w-5/6 rounded bg-white/15" />
+          <div className="h-16 w-full rounded bg-white/10 mt-3" />
+          <div className="h-2 w-1/2 rounded bg-white/15" />
+        </div>
+
+        {config.greetingBubble && (
+          <div
+            className="absolute max-w-[160px] px-2.5 py-1.5 rounded-[10px] bg-white text-[#111] text-[10px] leading-snug shadow-lg"
+            style={{
+              bottom: `${(Number(config.offset) || 20) * 0.7 + size + 8}px`,
+              [left ? "left" : "right"]: `${(Number(config.offset) || 20) * 0.7}px`,
+            }}
+          >
+            {config.greetingBubble}
+          </div>
+        )}
+
+        <div
+          className="absolute rounded-full grid place-items-center shadow-lg text-black"
+          style={{
+            background: config.accent,
+            height: size,
+            minWidth: size,
+            padding: config.launcherLabel ? "0 12px" : 0,
+            bottom: `${(Number(config.offset) || 20) * 0.7}px`,
+            [left ? "left" : "right"]: `${(Number(config.offset) || 20) * 0.7}px`,
+          }}
+        >
+          <span className="text-[13px] font-semibold whitespace-nowrap flex items-center gap-1.5">
+            <span>{channel.personas?.icon || "💬"}</span>
+            {config.launcherLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,754 @@
+{
+  "lang": "kk",
+  "title": "Қазақша",
+  "res": {},
+  "app": {
+    "meta": {
+      "title": "Signalo",
+      "description": "",
+      "keywords": []
+    },
+    "pages": {
+      "overview": {
+        "meta": {
+          "title": "Шолу",
+          "description": "Ассистентіңіз бүгін қалай сатып жатыр.",
+          "keywords": [
+            "панель",
+            "сату боты"
+          ]
+        },
+        "greeting": "Қайта қош келдіңіз",
+        "setup": {
+          "title": "Баптауды аяқтаңыз",
+          "subtitle": "Үш қадам — ассистент сата бастайды.",
+          "knowledge": "Тауарларды білім қорына қосыңыз",
+          "persona": "Персона жасап, оған дауыс беріңіз",
+          "channel": "Клиенттер жаза алатын арна қосыңыз",
+          "catalogue": "Каталогқа тауар мен қызмет қосыңыз"
+        },
+        "stats": {
+          "conversations": "Диалогтар",
+          "orders": "Тапсырыстар",
+          "revenue": "Сатылды және жазылды",
+          "revenueSub": "Болдырылмағандарсыз",
+          "autoResolve": "Бот шешті",
+          "last30": "30 күнде {count}",
+          "handoffs": "{count} адамға берілді",
+          "bookings": "Жазылулар",
+          "lowStock": "Қойма азайды"
+        },
+        "recent": {
+          "title": "Соңғы диалогтар",
+          "viewAll": "Барлығы",
+          "empty": "Әзірге диалог жоқ.",
+          "needsYou": "Сіз керексіз"
+        },
+        "todayBookings": {
+          "title": "Бүгінгі жазылулар",
+          "empty": "Бүгінге жазылу жоқ.",
+          "viewAll": "Барлық жазылулар"
+        }
+      },
+      "knowledgeBase": {
+        "meta": {
+          "title": "Білім қоры",
+          "description": "Өнімдер, сұрақ-жауаптар, ағындар, саясаттар және жауап үлгілері"
+        },
+        "types": {
+          "product": {
+            "singular": "Өнім",
+            "plural": "Өнімдер"
+          },
+          "service": {
+            "singular": "Қызмет",
+            "plural": "Қызметтер"
+          },
+          "faq": {
+            "singular": "Жиі қойылатын сұрақ",
+            "plural": "Жиі қойылатын сұрақтар"
+          },
+          "flow": {
+            "singular": "Ағын",
+            "plural": "Ағындар"
+          },
+          "policy": {
+            "singular": "Саясат",
+            "plural": "Саясаттар"
+          },
+          "template": {
+            "singular": "Үлгі",
+            "plural": "Үлгілер"
+          }
+        },
+        "table": {
+          "title": "Атауы",
+          "type": "Түрі",
+          "content": "Мазмұны",
+          "keywords": "Кілт сөздер",
+          "persona": "Персона",
+          "priority": "Басымдық",
+          "status": "Күйі",
+          "actions": "Әрекеттер"
+        },
+        "fields": {
+          "type": {
+            "label": "Түрі"
+          },
+          "title": {
+            "label": "Атауы",
+            "placeholder": "мыс. Премиум тариф"
+          },
+          "content": {
+            "label": "Мазмұны",
+            "placeholder": "мыс. Бұл жазбаны толық сипаттаңыз..."
+          },
+          "keywords": {
+            "label": "Кілт сөздер",
+            "placeholder": "үтір арқылы: баға, тариф, жаңарту"
+          },
+          "priority": {
+            "label": "Басымдық"
+          },
+          "status": {
+            "label": "Күйі",
+            "active": "Белсенді",
+            "draft": "Жоба"
+          },
+          "price": {
+            "label": "Бағасы",
+            "placeholder": "49900"
+          },
+          "currency": {
+            "label": "Валюта",
+            "placeholder": "Валютаны таңдаңыз"
+          },
+          "category": {
+            "label": "Санаты",
+            "placeholder": "Бағалар"
+          },
+          "relatedQuestions": {
+            "label": "Ұқсас сұрақтар",
+            "placeholder": "Құпия сөзді қалай қалпына келтіруге болады?"
+          },
+          "steps": {
+            "label": "Қадамдар",
+            "placeholder": "Клиентпен сәлемдесіңіз"
+          },
+          "validUntil": {
+            "label": "Жарамдылық мерзімі",
+            "placeholder": "Күнді таңдаңыз"
+          },
+          "language": {
+            "label": "Тіл",
+            "placeholder": "Kazakh"
+          },
+          "persona": {
+            "label": "Персона"
+          }
+        },
+        "modals": {
+          "addTitle": "Жазба қосу",
+          "updateTitle": "Жазбаны жаңарту",
+          "add": "Жазба қосу",
+          "update": "Жазбаны жаңарту",
+          "cancel": "Бас тарту"
+        },
+        "entries": {
+          "one": "{count} жазба",
+          "other": "{count} жазба"
+        },
+        "movedNote": "Тауарлар мен қызметтер енді Каталогта."
+      },
+      "personas": {
+        "meta": {
+          "title": "Персоналар",
+          "description": "Бірегей мінез-құлық, тон және жүріс-тұрысы бар AI-агенттер"
+        },
+        "table": {
+          "name": "Атауы",
+          "tone": "Тон",
+          "greeting": "Сәлемдесу",
+          "model": "Модель",
+          "language": "Тіл",
+          "status": "Күйі",
+          "actions": "Әрекеттер"
+        },
+        "fields": {
+          "name": {
+            "label": "Атауы",
+            "placeholder": "мыс. Негізгі қолдау боты"
+          },
+          "emoji": {
+            "label": "Эмодзи"
+          },
+          "tone": {
+            "label": "Тон"
+          },
+          "greeting": {
+            "label": "Сәлемдесу",
+            "placeholder": "Сәлем! Сізге қалай көмектесе аламын?"
+          },
+          "systemPrompt": {
+            "label": "Жүйелік промпт",
+            "placeholder": "Сіз — тұтынушыларға көмектесетін бот..."
+          },
+          "model": {
+            "label": "Модель"
+          },
+          "temperature": {
+            "label": "Температура"
+          },
+          "maxTokens": {
+            "label": "Макс. токен"
+          },
+          "fallbackBehavior": {
+            "label": "Сәтсіздік кезіндегі әрекет"
+          },
+          "language": {
+            "label": "Тіл"
+          },
+          "blockedTopics": {
+            "label": "Тыйым салынған тақырыптар",
+            "placeholder": "Бәсекелестер бағалары"
+          },
+          "escalationTriggers": {
+            "label": "Эскалация триггерлері",
+            "placeholder": "менеджер, тірі оператор"
+          },
+          "status": {
+            "label": "Күйі",
+            "active": "Белсенді",
+            "inactive": "Белсенді емес"
+          }
+        },
+        "modals": {
+          "addTitle": "Персона қосу",
+          "updateTitle": "Персонаны жаңарту",
+          "add": "Персона қосу",
+          "update": "Персонаны жаңарту",
+          "cancel": "Бас тарту"
+        },
+        "entries": {
+          "one": "{count} персона",
+          "other": "{count} персона"
+        },
+        "tones": {
+          "friendly": "Достық",
+          "professional": "Кәсіби",
+          "persuasive": "Сендіру",
+          "technical": "Техникалық",
+          "custom": "Өзіндік"
+        },
+        "models": {
+          "claude": "Claude",
+          "gpt": "GPT-4o"
+        },
+        "languages": {
+          "auto": "Авто-анықтау",
+          "kk": "Қазақша",
+          "ru": "Русский",
+          "en": "English"
+        },
+        "fallbacks": {
+          "escalate": "Адамға жіберу",
+          "retry": "Нақтылаумен қайталау",
+          "apologize": "Кешірім сұрау және аяқтау"
+        },
+        "playground": {
+          "placeholder": "Хабарлама жазыңыз…"
+        }
+      },
+      "conversations": {
+        "meta": {
+          "title": "Диалогтар",
+          "description": "Ассистенттің барлық диалогтары және қабылданған тапсырыстар."
+        },
+        "searchPlaceholder": "Аты, ник немесе телефон бойынша іздеу…",
+        "selectPrompt": "Оқу үшін диалогты таңдаңыз.",
+        "filters": {
+          "all": "Барлығы",
+          "open": "Ашық",
+          "escalated": "Эскалация",
+          "handoff": "Адам керек",
+          "resolved": "Шешілген"
+        },
+        "channels": {
+          "webchat": "Сайт",
+          "telegram": "Telegram",
+          "whatsapp": "WhatsApp",
+          "email": "Пошта",
+          "playground": "Сынақ"
+        },
+        "status": {
+          "open": "Ашық",
+          "needs_review": "Тексеру керек",
+          "escalated": "Эскалация",
+          "resolved": "Шешілді",
+          "closed": "Жабық"
+        },
+        "empty": {
+          "title": "Әзірге бос",
+          "subtitle": "Клиент жазған бойда диалогтар осында шығады."
+        },
+        "transcript": {
+          "empty": "Бұл диалогта хабарлама жоқ."
+        },
+        "reply": {
+          "placeholder": "Адам ретінде жауап беру…",
+          "send": "Жіберу"
+        },
+        "actions": {
+          "resolve": "Шешілді",
+          "reopen": "Қайта ашу"
+        },
+        "labels": {
+          "agent": "Сіз ·",
+          "bot": "Ассистент ·",
+          "visitor": "Қонақ"
+        },
+        "time": {
+          "justNow": "қазір",
+          "minutesShort": "м",
+          "hoursShort": "с",
+          "daysShort": "к"
+        }
+      },
+      "channels": {
+        "meta": {
+          "title": "Арналар",
+          "description": "Клиенттер ассистентті қайдан табады."
+        },
+        "types": {
+          "web": {
+            "add": "Сайтқа виджет қосу",
+            "desc": "Сайтыңыздағы чат түймесі."
+          },
+          "telegram": {
+            "add": "Telegram бот қосу",
+            "desc": "Ассистент Telegram ішінде жауап береді."
+          }
+        },
+        "active": "Қосулы",
+        "paused": "Тоқтатылған",
+        "pause": "Тоқтату",
+        "resume": "Қосу",
+        "delete": "Жою",
+        "embedLabel": "</body> алдына қойыңыз",
+        "testLink": "Чатты ашу",
+        "rotateKey": "Кілтті жаңарту",
+        "connect": "Вебхукты қосу",
+        "telegramHelp": "@BotFather арқылы бот жасап, токенді жоғарыға қойыңыз да, қосыңыз. Публикалық HTTPS мекенжай қажет.",
+        "needPersona": "Алдымен персона жасаңыз — арнаға жауап беретін біреу керек.",
+        "fields": {
+          "name": "Атауы",
+          "persona": "Персона",
+          "personaPlaceholder": "Персонаны таңдаңыз",
+          "botToken": "Бот токені",
+          "botTokenPlaceholder": "123456:ABC-DEF…",
+          "personaHint": "Персона арнаның қалай сөйлейтінін және не білетінін анықтайды.",
+          "replaceToken": "Ауыстыру",
+          "saveToken": "Токенді сақтау"
+        },
+        "empty": {
+          "title": "Әзірге арна жоқ",
+          "subtitle": "Клиенттер жаза алуы үшін сайт виджетін немесе Telegram ботын қосыңыз."
+        },
+        "confirmDelete": {
+          "title": "Арнаны жою керек пе?",
+          "body": "Виджет бірден тоқтайды, кілт жарамсыз болады. Диалогтар сақталады.",
+          "cancel": "Болдырмау"
+        },
+        "tabs": {
+          "setup": "Баптау",
+          "look": "Көрінісі",
+          "install": "Орнату"
+        },
+        "tokenSet": "Токен сақталған",
+        "tokenMissing": "Токен жоқ",
+        "keyLabel": "Публикалық кілт",
+        "installHint": "</body> алдына бір рет қойыңыз. Көрініс өзгерістері кодты өңдеместен қолданылады.",
+        "look": {
+          "accent": "Акцент түсі",
+          "position": "Орналасуы",
+          "left": "Төменгі сол жақ",
+          "right": "Төменгі оң жақ",
+          "size": "Түйме өлшемі",
+          "offset": "Шеттен қашықтық",
+          "title": "Терезе тақырыбы",
+          "launcherLabel": "Түймедегі мәтін",
+          "launcherLabelPlaceholder": "Бізге жазыңыз",
+          "launcherLabelHint": "Дөңгелек түйме үшін бос қалдырыңыз.",
+          "greetingBubble": "Шақыру жолы",
+          "greetingBubblePlaceholder": "Таңдауға көмектесейін бе?",
+          "greetingBubbleHint": "Басу алдында шығатын бір жол. Бір рет көрсетіледі.",
+          "autoOpen": "Өзі ашылсын",
+          "autoOpenHint": "Жаңа келушіге чатты біраздан кейін ашады.",
+          "autoOpenDelay": "Кейін (секунд)",
+          "preview": "Алдын ала қарау",
+          "save": "Көріністі сақтау"
+        },
+        "connected": "Қабылдауда",
+        "notConnected": "Қосылмаған"
+      },
+      "login": {
+        "meta": {
+          "title": "Кіру",
+          "description": "Signalo аккаунтыңызға кіріңіз",
+          "keywords": [
+            "кіру",
+            "авторизация"
+          ]
+        },
+        "title": "Қош келдіңіз!",
+        "subtitle": "Аккаунтыңызға кіріңіз",
+        "info": "Кіру арқылы сіз Шарттар мен Құпиялық саясатына келісесіз.",
+        "fields": {
+          "email": {
+            "label": "Эл. пошта",
+            "placeholder": "you@example.com"
+          },
+          "password": {
+            "label": "Құпия сөз",
+            "placeholder": "••••••••"
+          }
+        },
+        "submit": "Кіру",
+        "forgotPassword": "Құпия сөзді ұмыттыңыз ба?"
+      },
+      "account": {
+        "meta": {
+          "title": "Аккаунт",
+          "description": "Профиліңіз бен тіліңіз."
+        },
+        "fields": {
+          "fullName": "Толық аты",
+          "fullNamePlaceholder": "Айгүл Нұрлан",
+          "username": "Пайдаланушы аты",
+          "usernamePlaceholder": "aigul",
+          "email": "Пошта",
+          "language": "Тіл"
+        },
+        "save": "Сақтау"
+      },
+      "catalogue": {
+        "meta": {
+          "title": "Каталог",
+          "description": "Сіз сататын нәрсе — қалдығы бар тауарлар және жазылуға болатын қызметтер."
+        },
+        "tabs": {
+          "products": "Тауарлар",
+          "services": "Қызметтер"
+        },
+        "searchPlaceholder": "Каталогтан іздеу…",
+        "addProduct": "Тауар қосу",
+        "addService": "Қызмет қосу",
+        "edit": "Өзгерту",
+        "delete": "Жою",
+        "paused": "Жасырылған",
+        "noDescription": "Сипаттама әзірге жоқ",
+        "minutes": "мин",
+        "buffer": "үзіліс",
+        "parallel": "бір уақытта {n}",
+        "stock": {
+          "increase": "Бір қосу",
+          "decrease": "Бір азайту",
+          "low": "Аз қалды",
+          "out": "Қоймада жоқ",
+          "untracked": "Қалдық есептелмейді"
+        },
+        "empty": {
+          "products": {
+            "title": "Тауар әзірге жоқ",
+            "subtitle": "Сататын нәрсеңізді қосыңыз. Ассистент тек осындағыны ғана ұсынады."
+          },
+          "services": {
+            "title": "Қызмет әзірге жоқ",
+            "subtitle": "Жазылуға болатын қызмет қосыңыз — маникюр, кеңес, жөндеу. Ұзақтығын көрсетсеңіз, ассистент жаза алады."
+          }
+        },
+        "editor": {
+          "editProduct": "Тауарды өзгерту",
+          "editService": "Қызметті өзгерту",
+          "save": "Сақтау",
+          "cancel": "Болдырмау"
+        },
+        "fields": {
+          "name": "Атауы",
+          "namePlaceholder": "мыс. Гель-лак",
+          "description": "Сипаттама",
+          "descriptionPlaceholder": "Клиент не алады. Ассистент осыны оқиды.",
+          "price": "Бағасы",
+          "currency": "Валюта",
+          "category": "Санат",
+          "categoryPlaceholder": "Маникюр",
+          "stock": "Қоймада",
+          "lowStockAt": "Ескерту шегі",
+          "duration": "Ұзақтығы (мин)",
+          "bufferMin": "Үзіліс (мин)",
+          "maxParallel": "Бір уақытта",
+          "activeLabel": "Қолжетімді",
+          "activeHint": "Ассистент ұсына алады",
+          "trackStock": "Қалдықты есептеу",
+          "trackStockHint": "Тапсырыста азайту",
+          "image": "Сурет",
+          "imageHint": "чатта клиентке көрсетіледі",
+          "leadTime": "Алдын ала ескерту (мин)"
+        },
+        "anyMaster": "Кез келген шебер жасай алады",
+        "slots": {
+          "title": "Қашан бастауға болады",
+          "help": "Клиентке тек осы басталу уақыттары ұсынылады, аралығындағы уақыт емес. Ырғақ таңдаңыз немесе нақты уақытты жазыңыз.",
+          "grid": "Әр N минут сайын",
+          "fixed": "Нақты уақыт",
+          "stepLabel": "Жазылуды бастау",
+          "everyN": "әр {n} мин сайын",
+          "timesLabel": "Басталу уақыты",
+          "timesHint": "Үтір арқылы, 24 сағаттық. мыс. 11:00, 14:00, 17:00",
+          "needTimes": "Кемінде бір уақыт қосыңыз, мысалы 11:00",
+          "noneSet": "Уақыт белгіленбеген"
+        },
+        "masters": {
+          "title": "Кім орындайды",
+          "help": "Бұл қызметке тек таңдалған шеберлер ұсынылады. Ешкім таңдалмаса — командадағы кез келген адам.",
+          "noStaff": "Алдымен Бизнес → Команда бөлімінде адам қосыңыз.",
+          "noneSelected": "Ешкім таңдалмаған — командадағы кез келген адам алады."
+        }
+      },
+      "bookings": {
+        "meta": {
+          "title": "Жазылулар",
+          "description": "Барлық жазылу және оның құны."
+        },
+        "today": "Бүгін",
+        "jumpToday": "Бүгінге",
+        "prevDay": "Алдыңғы күн",
+        "nextDay": "Келесі күн",
+        "addBooking": "Жаңа жазылу",
+        "deletedService": "Қызмет жойылған",
+        "noName": "Аты көрсетілмеген",
+        "countAndValue": "{n} жазылу · {value}",
+        "status": {
+          "booked": "Жазылды",
+          "confirmed": "Расталды",
+          "completed": "Орындалды",
+          "cancelled": "Болдырылды",
+          "no_show": "Келмеді"
+        },
+        "empty": {
+          "title": "Жазылу жоқ",
+          "subtitle": "Ассистент жазылу қабылдаған бойда осында шығады, немесе өзіңіз қосыңыз."
+        },
+        "errors": {
+          "pickService": "Алдымен қызметті таңдаңыз",
+          "pickSlot": "Уақытты таңдаңыз",
+          "needName": "Клиенттің аты керек"
+        },
+        "fields": {
+          "service": "Қызмет",
+          "servicePlaceholder": "Қызметті таңдаңыз",
+          "date": "Күні",
+          "staff": "Шебер",
+          "anyStaff": "Кез келген бос",
+          "time": "Уақыты",
+          "loadingSlots": "Бос уақыт ізделуде…",
+          "noSlots": "Ол күні бос уақыт жоқ — басқа күнді таңдаңыз.",
+          "customerName": "Клиент",
+          "customerContact": "Телефон немесе ник",
+          "book": "Жазу",
+          "cancel": "Болдырмау"
+        }
+      },
+      "business": {
+        "meta": {
+          "title": "Бизнес",
+          "description": "Жұмыс уақыты және шеберлер."
+        },
+        "hours": {
+          "title": "Жұмыс уақыты",
+          "subtitle": "Ассистент тек осы уақыт аралығына жазады.",
+          "open": "Ашық",
+          "closed": "Жабық",
+          "closedAllDay": "Демалыс",
+          "save": "Уақытты сақтау"
+        },
+        "team": {
+          "title": "Команда",
+          "subtitle": "Жазылуға болатын шеберлерді қосыңыз. Бос болса, жазылу нақты адамға байланбайды.",
+          "add": "Қосу",
+          "namePlaceholder": "Аты",
+          "rolePlaceholder": "Лауазымы (міндетті емес)",
+          "inactive": "Белсенді емес",
+          "activate": "Қосу",
+          "deactivate": "Тоқтату",
+          "remove": "Жою",
+          "empty": "Әзірге ешкім жоқ.",
+          "shifts": "Ауысымдар",
+          "saveShifts": "Ауысымдарды сақтау",
+          "shiftsHelp": "Бұл адам қашан жұмыс істейді. Жазылу тек оның ауысымында және салон уақытында ұсынылады.",
+          "emptyHint": "Жазылуға болатын шеберлерді қосыңыз. Онсыз жазылу нақты адамға байланбайды."
+        }
+      }
+    },
+    "buttons": {},
+    "labels": {
+      "menu": "Мәзір",
+      "settings": "Параметрлер",
+      "logOut": "Шығу",
+      "switchLanguage": "Тілді ауыстыру",
+      "active": "белсенді",
+      "draft": "жоба",
+      "search": "Атауы, кілт сөз немесе мазмұн бойынша іздеу...",
+      "global": "Жаһандық",
+      "allPersonas": "Барлық персоналар"
+    },
+    "res": {
+      "emailRequired": "Эл. поштаны енгізіңіз",
+      "emailInvalid": "Жарамды эл. пошта енгізіңіз",
+      "passwordRequired": "Құпия сөзді енгізіңіз",
+      "passwordMin": "Құпия сөз кемінде 6 таңбадан тұруы керек",
+      "passwordIncorrect": "Эл. пошта немесе құпия сөз дұрыс емес",
+      "typeRequired": "Түрін таңдаңыз",
+      "titleRequired": "Атауын енгізіңіз",
+      "titleMin": "Атауы кемінде 6 таңбадан тұруы керек",
+      "contentRequired": "Мазмұнын енгізіңіз",
+      "contentMin": "Мазмұны кемінде 6 таңбадан тұруы керек",
+      "keywordsRequired": "Кілт сөздерді енгізіңіз",
+      "keywordsMin": "Кілт сөздер кемінде 6 таңбадан тұруы керек",
+      "priorityMin": "Басымдық кемінде 1 болуы керек",
+      "priorityMax": "Басымдық ең көбі 10 болуы керек",
+      "keywordsMax": "Кілт сөздер саны ең көбі 10 болуы керек",
+      "entryCreated": "Жазба сәтті қосылды",
+      "entryCreateError": "Жазбаны қосу сәтсіз аяқталды",
+      "entryDeleted": "Жазба сәтті өшірілінді",
+      "personaCreated": "Персона сәтті қосылды",
+      "personaCreateError": "Персонаны қосу сәтсіз аяқталды",
+      "personaUpdated": "Персона сәтті жаңартылды",
+      "personaUpdateError": "Персонаны жаңарту сәтсіз аяқталды",
+      "personaDeleted": "Персона сәтті өшірілді",
+      "personaDeleteError": "Персонаны өшіру сәтсіз аяқталды",
+      "nameRequired": "Атауын енгізіңіз",
+      "nameMin": "Атауы кемінде 2 таңбадан тұруы керек",
+      "greetingRequired": "Сәлемдесуді енгізіңіз",
+      "systemPromptRequired": "Жүйелік промптты енгізіңіз",
+      "systemPromptMin": "Жүйелік промпт кемінде 10 таңбадан тұруы керек",
+      "messageSendError": "Хабарламаны жіберу мүмкін болмады",
+      "conversationUpdated": "Диалог жаңартылды",
+      "conversationUpdateError": "Диалогты жаңарту мүмкін болмады",
+      "channelCreated": "Арна жасалды",
+      "channelCreateError": "Арнаны жасау мүмкін болмады",
+      "channelUpdated": "Сақталды",
+      "channelUpdateError": "Арнаны сақтау мүмкін болмады",
+      "channelDeleted": "Арна жойылды",
+      "channelDeleteError": "Арнаны жою мүмкін болмады",
+      "keyRotated": "Жаңа кілт жасалды — виджет кодын жаңартыңыз",
+      "tokenSaved": "Токен сақталды",
+      "telegramConnected": "Telegram қосылды",
+      "telegramConnectError": "Telegram қосылмады",
+      "accountUpdated": "Профиль жаңартылды",
+      "catalogueCreated": "Қосылды",
+      "catalogueUpdated": "Сақталды",
+      "catalogueSaveError": "Сақталмады",
+      "productDeleted": "Тауар жойылды",
+      "productDeleteError": "Тауарды жою мүмкін болмады",
+      "serviceDeleted": "Қызмет жойылды",
+      "serviceDeleteError": "Қызметті жою мүмкін болмады",
+      "stockUpdateError": "Қалдықты жаңарту мүмкін болмады",
+      "bookingCreated": "Жазылды",
+      "bookingCreateError": "Жазу мүмкін болмады",
+      "bookingUpdated": "Жаңартылды",
+      "bookingUpdateError": "Жазылуды жаңарту мүмкін болмады",
+      "hoursSaved": "Уақыт сақталды",
+      "hoursSaveError": "Уақытты сақтау мүмкін болмады",
+      "staffCreated": "Қосылды",
+      "staffCreateError": "Қосу мүмкін болмады",
+      "staffUpdateError": "Жаңарту мүмкін болмады",
+      "staffDeleted": "Жойылды",
+      "staffDeleteError": "Жою мүмкін болмады"
+    },
+    "global": {
+      "currencies": {
+        "kzt": "Теңге",
+        "usd": "Доллар",
+        "eur": "Еуро",
+        "rub": "Рубль"
+      },
+      "days": {
+        "monday": {
+          "full": "Дүйсенбі",
+          "short": "Дс"
+        },
+        "tuesday": {
+          "full": "Сейсенбі",
+          "short": "Сс"
+        },
+        "wednesday": {
+          "full": "Сәрсенбі",
+          "short": "Ср"
+        },
+        "thursday": {
+          "full": "Бейсенбі",
+          "short": "Бс"
+        },
+        "friday": {
+          "full": "Жұма",
+          "short": "Жм"
+        },
+        "saturday": {
+          "full": "Сенбі",
+          "short": "Сб"
+        },
+        "sunday": {
+          "full": "Жексенбі",
+          "short": "Жк"
+        }
+      },
+      "weekdaysShort": [
+        "Жк",
+        "Дс",
+        "Сс",
+        "Ср",
+        "Бс",
+        "Жм",
+        "Сб"
+      ],
+      "weekdaysFull": [
+        "Жексенбі",
+        "Дүйсенбі",
+        "Сейсенбі",
+        "Сәрсенбі",
+        "Бейсенбі",
+        "Жұма",
+        "Сенбі"
+      ],
+      "monthsShort": [
+        "Қаң",
+        "Ақп",
+        "Нау",
+        "Сәу",
+        "Мам",
+        "Мау",
+        "Шіл",
+        "Там",
+        "Қыр",
+        "Қаз",
+        "Қар",
+        "Жел"
+      ],
+      "months": [
+        "Қаңтар",
+        "Ақпан",
+        "Наурыз",
+        "Сәуір",
+        "Мамыр",
+        "Маусым",
+        "Шілде",
+        "Тамыз",
+        "Қыркүйек",
+        "Қазан",
+        "Қараша",
+        "Желтоқсан"
+      ]
+    }
+  }
+}

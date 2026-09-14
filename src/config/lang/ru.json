@@ -1,0 +1,760 @@
+{
+  "lang": "ru",
+  "title": "Русский",
+  "res": {},
+  "app": {
+    "meta": {
+      "title": "Signalo",
+      "description": "",
+      "keywords": []
+    },
+    "pages": {
+      "overview": {
+        "meta": {
+          "title": "Обзор",
+          "description": "Как ваш ассистент продаёт сегодня.",
+          "keywords": [
+            "панель",
+            "бот продаж"
+          ]
+        },
+        "greeting": "С возвращением",
+        "setup": {
+          "title": "Завершите настройку",
+          "subtitle": "Три шага — и ассистент начнёт продавать.",
+          "knowledge": "Добавьте товары в базу знаний",
+          "persona": "Создайте персону и задайте ей голос",
+          "channel": "Подключите канал, чтобы клиенты могли написать",
+          "catalogue": "Добавьте товары и услуги в каталог"
+        },
+        "stats": {
+          "conversations": "Диалоги",
+          "orders": "Заказы",
+          "revenue": "Продано и записано",
+          "revenueSub": "Без отменённых",
+          "autoResolve": "Закрыл бот",
+          "last30": "{count} за 30 дней",
+          "handoffs": "{count} передано человеку",
+          "bookings": "Записи",
+          "lowStock": "Мало на складе"
+        },
+        "recent": {
+          "title": "Последние диалоги",
+          "viewAll": "Все диалоги",
+          "empty": "Диалогов пока нет.",
+          "needsYou": "Нужны вы"
+        },
+        "todayBookings": {
+          "title": "Записи на сегодня",
+          "empty": "На сегодня записей нет.",
+          "viewAll": "Все записи"
+        }
+      },
+      "knowledgeBase": {
+        "meta": {
+          "title": "База знаний",
+          "description": "Продукты, FAQ, сценарии, политики и шаблоны ответов"
+        },
+        "types": {
+          "product": {
+            "singular": "Продукт",
+            "plural": "Продукты"
+          },
+          "service": {
+            "singular": "Услуга",
+            "plural": "Услуги"
+          },
+          "faq": {
+            "singular": "Вопрос",
+            "plural": "Вопросы"
+          },
+          "flow": {
+            "singular": "Сценарий",
+            "plural": "Сценарии"
+          },
+          "policy": {
+            "singular": "Политика",
+            "plural": "Политики"
+          },
+          "template": {
+            "singular": "Шаблон",
+            "plural": "Шаблоны"
+          }
+        },
+        "table": {
+          "title": "Название",
+          "type": "Тип",
+          "content": "Содержание",
+          "keywords": "Ключевые слова",
+          "persona": "Персона",
+          "priority": "Приоритет",
+          "status": "Статус",
+          "actions": "Действия"
+        },
+        "fields": {
+          "type": {
+            "label": "Тип"
+          },
+          "title": {
+            "label": "Название",
+            "placeholder": "напр. Премиум-план"
+          },
+          "content": {
+            "label": "Содержание",
+            "placeholder": "напр. Опишите эту запись подробно..."
+          },
+          "keywords": {
+            "label": "Ключевые слова",
+            "placeholder": "через запятую: цена, план, апгрейд"
+          },
+          "priority": {
+            "label": "Приоритет"
+          },
+          "status": {
+            "label": "Статус",
+            "active": "Активно",
+            "draft": "Черновик"
+          },
+          "price": {
+            "label": "Цена",
+            "placeholder": "49900"
+          },
+          "currency": {
+            "label": "Валюта",
+            "placeholder": "Выберите валюту"
+          },
+          "category": {
+            "label": "Категория",
+            "placeholder": "Цены"
+          },
+          "relatedQuestions": {
+            "label": "Похожие вопросы",
+            "placeholder": "Как сбросить пароль?"
+          },
+          "steps": {
+            "label": "Шаги",
+            "placeholder": "Поприветствуйте клиента"
+          },
+          "validUntil": {
+            "label": "Действует до",
+            "placeholder": "Выберите дату"
+          },
+          "language": {
+            "label": "Язык",
+            "placeholder": "Russian"
+          },
+          "persona": {
+            "label": "Персона"
+          }
+        },
+        "modals": {
+          "addTitle": "Добавить запись",
+          "updateTitle": "Обновить запись",
+          "add": "Добавить запись",
+          "update": "Обновить запись",
+          "cancel": "Отмена"
+        },
+        "entries": {
+          "one": "{count} запись",
+          "few": "{count} записи",
+          "many": "{count} записей",
+          "other": "{count} записи"
+        },
+        "movedNote": "Товары и услуги теперь в Каталоге."
+      },
+      "personas": {
+        "meta": {
+          "title": "Персоны",
+          "description": "AI-агенты с уникальными личностями, тоном и поведением"
+        },
+        "table": {
+          "name": "Имя",
+          "tone": "Тон",
+          "greeting": "Приветствие",
+          "model": "Модель",
+          "language": "Язык",
+          "status": "Статус",
+          "actions": "Действия"
+        },
+        "fields": {
+          "name": {
+            "label": "Имя",
+            "placeholder": "напр. Основной бот поддержки"
+          },
+          "emoji": {
+            "label": "Эмодзи"
+          },
+          "tone": {
+            "label": "Тон"
+          },
+          "greeting": {
+            "label": "Приветствие",
+            "placeholder": "Здравствуйте! Чем могу помочь?"
+          },
+          "systemPrompt": {
+            "label": "Системный промпт",
+            "placeholder": "Вы — дружелюбный помощник клиентов..."
+          },
+          "model": {
+            "label": "Модель"
+          },
+          "temperature": {
+            "label": "Температура"
+          },
+          "maxTokens": {
+            "label": "Макс. токенов"
+          },
+          "fallbackBehavior": {
+            "label": "Поведение при неудаче"
+          },
+          "language": {
+            "label": "Язык"
+          },
+          "blockedTopics": {
+            "label": "Запрещённые темы",
+            "placeholder": "Цены конкурентов"
+          },
+          "escalationTriggers": {
+            "label": "Триггеры эскалации",
+            "placeholder": "менеджер, живой оператор"
+          },
+          "status": {
+            "label": "Статус",
+            "active": "Активно",
+            "inactive": "Неактивно"
+          }
+        },
+        "modals": {
+          "addTitle": "Добавить персону",
+          "updateTitle": "Обновить персону",
+          "add": "Добавить персону",
+          "update": "Обновить персону",
+          "cancel": "Отмена"
+        },
+        "entries": {
+          "one": "{count} персона",
+          "few": "{count} персоны",
+          "many": "{count} персон",
+          "other": "{count} персоны"
+        },
+        "tones": {
+          "friendly": "Дружелюбный",
+          "professional": "Профессиональный",
+          "persuasive": "Убеждающий",
+          "technical": "Технический",
+          "custom": "Свой"
+        },
+        "models": {
+          "claude": "Claude",
+          "gpt": "GPT-4o"
+        },
+        "languages": {
+          "auto": "Авто-определение",
+          "kk": "Қазақша",
+          "ru": "Русский",
+          "en": "English"
+        },
+        "fallbacks": {
+          "escalate": "Передать человеку",
+          "retry": "Повторить с уточнением",
+          "apologize": "Извиниться и завершить"
+        },
+        "playground": {
+          "placeholder": "Напишите сообщение…"
+        }
+      },
+      "conversations": {
+        "meta": {
+          "title": "Диалоги",
+          "description": "Все диалоги ассистента и оформленные заказы."
+        },
+        "searchPlaceholder": "Поиск по имени, нику или телефону…",
+        "selectPrompt": "Выберите диалог, чтобы прочитать его.",
+        "filters": {
+          "all": "Все",
+          "open": "Открытые",
+          "escalated": "Эскалация",
+          "handoff": "Нужен человек",
+          "resolved": "Решённые"
+        },
+        "channels": {
+          "webchat": "Сайт",
+          "telegram": "Telegram",
+          "whatsapp": "WhatsApp",
+          "email": "Почта",
+          "playground": "Песочница"
+        },
+        "status": {
+          "open": "Открыт",
+          "needs_review": "На проверке",
+          "escalated": "Эскалация",
+          "resolved": "Решён",
+          "closed": "Закрыт"
+        },
+        "empty": {
+          "title": "Пока пусто",
+          "subtitle": "Диалоги появятся, как только клиент напишет ассистенту."
+        },
+        "transcript": {
+          "empty": "В этом диалоге нет сообщений."
+        },
+        "reply": {
+          "placeholder": "Ответить как человек…",
+          "send": "Отправить"
+        },
+        "actions": {
+          "resolve": "Решён",
+          "reopen": "Открыть снова"
+        },
+        "labels": {
+          "agent": "Вы ·",
+          "bot": "Ассистент ·",
+          "visitor": "Гость"
+        },
+        "time": {
+          "justNow": "сейчас",
+          "minutesShort": "м",
+          "hoursShort": "ч",
+          "daysShort": "д"
+        }
+      },
+      "channels": {
+        "meta": {
+          "title": "Каналы",
+          "description": "Где клиенты находят вашего ассистента."
+        },
+        "types": {
+          "web": {
+            "add": "Добавить виджет на сайт",
+            "desc": "Чат-кнопка на вашем сайте."
+          },
+          "telegram": {
+            "add": "Добавить Telegram-бота",
+            "desc": "Ассистент отвечает прямо в Telegram."
+          }
+        },
+        "active": "Работает",
+        "paused": "Пауза",
+        "pause": "Пауза",
+        "resume": "Включить",
+        "delete": "Удалить",
+        "embedLabel": "Вставьте перед </body>",
+        "testLink": "Открыть чат",
+        "rotateKey": "Обновить ключ",
+        "connect": "Подключить вебхук",
+        "telegramHelp": "Создайте бота через @BotFather, вставьте токен выше и нажмите подключить. Нужен публичный HTTPS-адрес.",
+        "needPersona": "Сначала создайте персону — каналу нужен кто-то, кто будет отвечать.",
+        "fields": {
+          "name": "Название",
+          "persona": "Персона",
+          "personaPlaceholder": "Выберите персону",
+          "botToken": "Токен бота",
+          "botTokenPlaceholder": "123456:ABC-DEF…",
+          "personaHint": "Персона определяет, как канал общается и что знает.",
+          "replaceToken": "Заменить",
+          "saveToken": "Сохранить токен"
+        },
+        "empty": {
+          "title": "Каналов пока нет",
+          "subtitle": "Добавьте виджет на сайт или Telegram-бота, чтобы клиенты могли написать."
+        },
+        "confirmDelete": {
+          "title": "Удалить канал?",
+          "body": "Виджет перестанет работать сразу, ключ станет недействительным. Диалоги сохранятся.",
+          "cancel": "Отмена"
+        },
+        "tabs": {
+          "setup": "Настройка",
+          "look": "Вид",
+          "install": "Установка"
+        },
+        "tokenSet": "Токен сохранён",
+        "tokenMissing": "Нет токена",
+        "keyLabel": "Публичный ключ",
+        "installHint": "Вставьте один раз перед </body>. Изменения вида применяются без правки кода.",
+        "look": {
+          "accent": "Акцентный цвет",
+          "position": "Положение",
+          "left": "Слева внизу",
+          "right": "Справа внизу",
+          "size": "Размер кнопки",
+          "offset": "Отступ от края",
+          "title": "Заголовок окна",
+          "launcherLabel": "Текст на кнопке",
+          "launcherLabelPlaceholder": "Напишите нам",
+          "launcherLabelHint": "Оставьте пустым для круглой кнопки с иконкой.",
+          "greetingBubble": "Подсказка",
+          "greetingBubblePlaceholder": "Помочь с выбором?",
+          "greetingBubbleHint": "Строка, которая появляется до клика. Показывается один раз.",
+          "autoOpen": "Открывать самому",
+          "autoOpenHint": "Откроет чат новому посетителю через паузу.",
+          "autoOpenDelay": "Через (секунд)",
+          "preview": "Предпросмотр",
+          "save": "Сохранить вид"
+        },
+        "connected": "Принимает",
+        "notConnected": "Не подключён"
+      },
+      "login": {
+        "meta": {
+          "title": "Вход",
+          "description": "Войдите в свой аккаунт Signalo",
+          "keywords": [
+            "вход",
+            "авторизация"
+          ]
+        },
+        "title": "С возвращением!",
+        "subtitle": "Войдите в свой аккаунт",
+        "info": "Входя, вы соглашаетесь с нашими Условиями и Политикой конфиденциальности.",
+        "fields": {
+          "email": {
+            "label": "Эл. почта",
+            "placeholder": "you@example.com"
+          },
+          "password": {
+            "label": "Пароль",
+            "placeholder": "••••••••"
+          }
+        },
+        "submit": "Войти",
+        "forgotPassword": "Забыли пароль?"
+      },
+      "account": {
+        "meta": {
+          "title": "Аккаунт",
+          "description": "Ваш профиль и язык."
+        },
+        "fields": {
+          "fullName": "Имя и фамилия",
+          "fullNamePlaceholder": "Иван Иванов",
+          "username": "Имя пользователя",
+          "usernamePlaceholder": "ivan",
+          "email": "Почта",
+          "language": "Язык"
+        },
+        "save": "Сохранить"
+      },
+      "catalogue": {
+        "meta": {
+          "title": "Каталог",
+          "description": "Что вы продаёте — товары с остатками и услуги с записью."
+        },
+        "tabs": {
+          "products": "Товары",
+          "services": "Услуги"
+        },
+        "searchPlaceholder": "Поиск по каталогу…",
+        "addProduct": "Добавить товар",
+        "addService": "Добавить услугу",
+        "edit": "Изменить",
+        "delete": "Удалить",
+        "paused": "Скрыт",
+        "noDescription": "Описания пока нет",
+        "minutes": "мин",
+        "buffer": "перерыв",
+        "parallel": "{n} одновременно",
+        "stock": {
+          "increase": "Плюс один",
+          "decrease": "Минус один",
+          "low": "Мало",
+          "out": "Нет в наличии",
+          "untracked": "Остатки не ведутся"
+        },
+        "empty": {
+          "products": {
+            "title": "Товаров пока нет",
+            "subtitle": "Добавьте то, что продаёте. Ассистент предлагает только то, что здесь есть, с вашей ценой и остатком."
+          },
+          "services": {
+            "title": "Услуг пока нет",
+            "subtitle": "Добавьте услуги с записью — маникюр, консультацию, ремонт. Укажите длительность, и ассистент сможет записывать."
+          }
+        },
+        "editor": {
+          "editProduct": "Изменить товар",
+          "editService": "Изменить услугу",
+          "save": "Сохранить",
+          "cancel": "Отмена"
+        },
+        "fields": {
+          "name": "Название",
+          "namePlaceholder": "напр. Гель-лак",
+          "description": "Описание",
+          "descriptionPlaceholder": "Что получает клиент. Ассистент читает это.",
+          "price": "Цена",
+          "currency": "Валюта",
+          "category": "Категория",
+          "categoryPlaceholder": "Маникюр",
+          "stock": "В наличии",
+          "lowStockAt": "Предупредить при",
+          "duration": "Длительность (мин)",
+          "bufferMin": "Перерыв (мин)",
+          "maxParallel": "Одновременно",
+          "activeLabel": "Доступно",
+          "activeHint": "Ассистент может предлагать",
+          "trackStock": "Вести остатки",
+          "trackStockHint": "Списывать при заказе",
+          "image": "Фото",
+          "imageHint": "показывается клиенту в чате",
+          "leadTime": "Предупредить за (мин)"
+        },
+        "anyMaster": "Может любой мастер",
+        "slots": {
+          "title": "Когда можно начать",
+          "help": "Клиенту предлагаются только эти времена начала и ничего между ними. Задайте ритм или перечислите точное время.",
+          "grid": "Каждые N минут",
+          "fixed": "Точное время",
+          "stepLabel": "Начинать запись",
+          "everyN": "каждые {n} мин",
+          "timesLabel": "Время начала",
+          "timesHint": "Через запятую, 24 часа. напр. 11:00, 14:00, 17:00",
+          "needTimes": "Добавьте хотя бы одно время, например 11:00",
+          "noneSet": "Время не задано"
+        },
+        "masters": {
+          "title": "Кто выполняет",
+          "help": "Для этой услуги будут предлагаться только выбранные мастера. Если никого не выбрать — может любой из команды.",
+          "noStaff": "Сначала добавьте людей в Бизнес → Команда.",
+          "noneSelected": "Никто не выбран — может любой из команды."
+        }
+      },
+      "bookings": {
+        "meta": {
+          "title": "Записи",
+          "description": "Все записи и сколько они стоят."
+        },
+        "today": "Сегодня",
+        "jumpToday": "К сегодня",
+        "prevDay": "Предыдущий день",
+        "nextDay": "Следующий день",
+        "addBooking": "Новая запись",
+        "deletedService": "Услуга удалена",
+        "noName": "Имя не указано",
+        "countAndValue": "{n} записей · {value}",
+        "status": {
+          "booked": "Записан",
+          "confirmed": "Подтверждён",
+          "completed": "Выполнено",
+          "cancelled": "Отменён",
+          "no_show": "Не пришёл"
+        },
+        "empty": {
+          "title": "Записей нет",
+          "subtitle": "Записи появятся, как только ассистент их примет, либо добавьте вручную."
+        },
+        "errors": {
+          "pickService": "Сначала выберите услугу",
+          "pickSlot": "Выберите время",
+          "needName": "Нужно имя клиента"
+        },
+        "fields": {
+          "service": "Услуга",
+          "servicePlaceholder": "Выберите услугу",
+          "date": "Дата",
+          "staff": "Мастер",
+          "anyStaff": "Любой свободный",
+          "time": "Время",
+          "loadingSlots": "Ищем свободное время…",
+          "noSlots": "В этот день свободного нет — выберите другую дату.",
+          "customerName": "Клиент",
+          "customerContact": "Телефон или ник",
+          "book": "Записать",
+          "cancel": "Отмена"
+        }
+      },
+      "business": {
+        "meta": {
+          "title": "Бизнес",
+          "description": "Часы работы и мастера."
+        },
+        "hours": {
+          "title": "Часы работы",
+          "subtitle": "Ассистент предлагает время для записи только в эти часы.",
+          "open": "Открыто",
+          "closed": "Закрыто",
+          "closedAllDay": "Выходной",
+          "save": "Сохранить часы"
+        },
+        "team": {
+          "title": "Команда",
+          "subtitle": "Добавьте мастеров, к которым можно записаться. Если список пуст, записи не привязываются к человеку.",
+          "add": "Добавить",
+          "namePlaceholder": "Имя",
+          "rolePlaceholder": "Должность (необязательно)",
+          "inactive": "Неактивен",
+          "activate": "Включить",
+          "deactivate": "Пауза",
+          "remove": "Удалить",
+          "empty": "Пока никого нет.",
+          "shifts": "Смены",
+          "saveShifts": "Сохранить смены",
+          "shiftsHelp": "Когда работает этот человек. Запись предлагается только в его смену и в часы работы салона.",
+          "emptyHint": "Добавьте мастеров, к которым можно записаться. Без них записи не привязаны к человеку."
+        }
+      }
+    },
+    "buttons": {},
+    "labels": {
+      "menu": "Меню",
+      "settings": "Настройки",
+      "logOut": "Выйти",
+      "switchLanguage": "Поменять язык",
+      "active": "активно",
+      "draft": "черновик",
+      "search": "Поиск по названию, ключевому слову или содержанию...",
+      "global": "Глобально",
+      "allPersonas": "Все персоны"
+    },
+    "res": {
+      "emailRequired": "Введите эл. почту",
+      "emailInvalid": "Введите корректный адрес эл. почты",
+      "passwordRequired": "Введите пароль",
+      "passwordMin": "Пароль должен содержать не менее 6 символов",
+      "passwordIncorrect": "Пароль или эл. почта введены неверно",
+      "typeRequired": "Укажите тип",
+      "titleRequired": "Введите название",
+      "titleMin": "Название должно содержать не менее 6 символов",
+      "contentRequired": "Введите содержание",
+      "contentMin": "Содержание должно содержать не менее 6 символов",
+      "keywordsRequired": "Введите ключевые слова",
+      "keywordsMin": "Ключевые слова должны содержать не менее 6 символов",
+      "priorityMin": "Приоритет должен быть не менее 1",
+      "priorityMax": "Приоритет должен быть не более 10",
+      "keywordsMax": "Ключевых слов должно быть не более 10",
+      "entryCreated": "Запись успешно добавлена",
+      "entryCreateError": "Не удалось добавить запись",
+      "entryDeleted": "Запись удалена успешно",
+      "personaCreated": "Персона успешно добавлена",
+      "personaCreateError": "Не удалось добавить персону",
+      "personaUpdated": "Персона успешно обновлена",
+      "personaUpdateError": "Не удалось обновить персону",
+      "personaDeleted": "Персона успешно удалена",
+      "personaDeleteError": "Не удалось удалить персону",
+      "nameRequired": "Введите имя",
+      "nameMin": "Имя должно содержать не менее 2 символов",
+      "greetingRequired": "Введите приветствие",
+      "systemPromptRequired": "Введите системный промпт",
+      "systemPromptMin": "Системный промпт должен содержать не менее 10 символов",
+      "messageSendError": "Не удалось отправить сообщение",
+      "conversationUpdated": "Диалог обновлён",
+      "conversationUpdateError": "Не удалось обновить диалог",
+      "channelCreated": "Канал создан",
+      "channelCreateError": "Не удалось создать канал",
+      "channelUpdated": "Сохранено",
+      "channelUpdateError": "Не удалось сохранить канал",
+      "channelDeleted": "Канал удалён",
+      "channelDeleteError": "Не удалось удалить канал",
+      "keyRotated": "Новый ключ создан — обновите код виджета",
+      "tokenSaved": "Токен сохранён",
+      "telegramConnected": "Telegram подключён",
+      "telegramConnectError": "Не удалось подключить Telegram",
+      "accountUpdated": "Профиль обновлён",
+      "catalogueCreated": "Добавлено",
+      "catalogueUpdated": "Сохранено",
+      "catalogueSaveError": "Не удалось сохранить",
+      "productDeleted": "Товар удалён",
+      "productDeleteError": "Не удалось удалить товар",
+      "serviceDeleted": "Услуга удалена",
+      "serviceDeleteError": "Не удалось удалить услугу",
+      "stockUpdateError": "Не удалось обновить остаток",
+      "bookingCreated": "Записано",
+      "bookingCreateError": "Не удалось записать",
+      "bookingUpdated": "Обновлено",
+      "bookingUpdateError": "Не удалось обновить запись",
+      "hoursSaved": "Часы сохранены",
+      "hoursSaveError": "Не удалось сохранить часы",
+      "staffCreated": "Добавлено",
+      "staffCreateError": "Не удалось добавить",
+      "staffUpdateError": "Не удалось обновить",
+      "staffDeleted": "Удалено",
+      "staffDeleteError": "Не удалось удалить"
+    },
+    "global": {
+      "available": "Доступен для работы",
+      "unavailable": "Занят",
+      "currencies": {
+        "kzt": "Тенге",
+        "usd": "Доллар",
+        "eur": "Евро",
+        "rub": "Рубль"
+      },
+      "days": {
+        "monday": {
+          "full": "Понедельник",
+          "short": "Пн"
+        },
+        "tuesday": {
+          "full": "Вторник",
+          "short": "Вт"
+        },
+        "wednesday": {
+          "full": "Среда",
+          "short": "Ср"
+        },
+        "thursday": {
+          "full": "Четверг",
+          "short": "Чт"
+        },
+        "friday": {
+          "full": "Пятница",
+          "short": "Пт"
+        },
+        "saturday": {
+          "full": "Суббота",
+          "short": "Сб"
+        },
+        "sunday": {
+          "full": "Воскресенье",
+          "short": "Вс"
+        }
+      },
+      "weekdaysShort": [
+        "Вс",
+        "Пн",
+        "Вт",
+        "Ср",
+        "Чт",
+        "Пт",
+        "Сб"
+      ],
+      "weekdaysFull": [
+        "Воскресенье",
+        "Понедельник",
+        "Вторник",
+        "Среда",
+        "Четверг",
+        "Пятница",
+        "Суббота"
+      ],
+      "monthsShort": [
+        "Янв",
+        "Фев",
+        "Мар",
+        "Апр",
+        "Май",
+        "Июн",
+        "Июл",
+        "Авг",
+        "Сен",
+        "Окт",
+        "Ноя",
+        "Дек"
+      ],
+      "months": [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь"
+      ]
+    }
+  }
+}

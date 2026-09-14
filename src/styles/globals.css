@@ -1,0 +1,321 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  /* Lifted off pure black: #000 with #0d0d0d cards gave almost no separation,
+     and greys under #6b were unreadable as body text. */
+  --color-primary:               #0a0a0c;
+  --color-secondary:             #9a9aa3;
+  --color-secondary-transparent: rgba(255, 255, 255, 0.12);
+  --color-secondary-transparent2: rgba(255, 255, 255, 0.055);
+  --color-accent:                #00d26a;
+  --color-bg:                    #0a0a0c;
+  --color-fg:                    #f4f4f6;
+
+  --color-border:                #26262c;
+  --color-border-hover:          #3a3a42;
+  --color-card:                  #131317;
+  --color-hover:                 #1d1d23;
+  --color-muted:                 #74747e;
+
+  /* Geist Mono is loaded in the layout but `font-mono` resolved to the
+     system stack, so monospace labels rendered in a different typeface
+     than the rest of the app. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-success:               #00d26a;
+  --color-error:                 #C82C2C;
+  --color-warning:               #ff6a00;
+  --color-info:                  #0090ff;
+
+  /* ── Font sizes ──────────────────────────────────────────── */
+  /* --text-* prefix is required by Tailwind v4 to generate text-{name} utilities */
+  --text-big:    4rem;
+  --text-h1:     3.5rem;
+  --text-h2:     3.2rem;
+  --text-h3:    1.4rem;
+  --text-h4:     1.1rem;
+  --text-p:      1rem;
+  --text-p2:     0.9rem;
+  --text-input:  14px;
+  --text-button: 12px;
+
+  /* ── Font weights ────────────────────────────────────────── */
+  --font-weight-bolder:  800;
+  --font-weight-bold:    700;
+  --font-weight-medium:  600;
+  --font-weight-light:   500;
+  --font-weight-lighter: 300;
+
+  /* ── Border radius ───────────────────────────────────────── */
+  --radius-button: 8px;
+  --radius-plate:  25px;
+  --radius-module: 20px;
+
+  /* ── Breakpoints ─────────────────────────────────────────── */
+  --breakpoint-desktop:  1550px;
+  --breakpoint-laptop:   1200px;
+  --breakpoint-laptop-2: 1010px;
+  --breakpoint-tablet:   850px;
+  --breakpoint-phone:    615px;
+  --breakpoint-phone-2:  470px;
+
+  --shadow-box-shadow: 0px 1px 24px rgb(0, 0, 0, 0.4);
+}
+
+@keyframes infinite-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes cta-shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(100%) skewX(-12deg);
+  }
+}
+
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-slow-reverse {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@utility animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
+
+@utility animate-spin-slow-reverse {
+  animation: spin-slow-reverse 20s linear infinite;
+}
+
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+[data-sonner-toaster] {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast] {
+  pointer-events: auto !important;
+}
+
+@layer base {
+  html {
+    /* Tells the browser to paint native controls — date/time pickers,
+       scrollbars, autofill — for a dark page. Without it their text renders
+       black on our dark inputs. */
+    color-scheme: dark;
+  }
+
+  body {
+    overflow-x: hidden;
+    /* Was `inherit`, which resolved to the browser's default black because
+       nothing above set a colour. Any element without an explicit text class
+       was invisible. */
+    color: var(--color-fg);
+    background-color: var(--color-bg);
+    text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    color: var(--color-bg);
+    background-color: var(--color-secondary);
+  }
+
+  h1, h2, h3, h4, h5, h6,
+  p, ul, ol, li,
+  figure, figcaption, blockquote, dl {
+    z-index: 2;
+  }
+
+  ul[class],
+  ol[class] {
+    padding: 0;
+  }
+
+  ul,
+  li[class] {
+    list-style: none;
+  }
+
+  img {
+    position: relative;
+    vertical-align: middle;
+  }
+
+  input, button, textarea, select {
+    font: inherit;
+    color: inherit;
+    border: none;
+  }
+
+  /* Chrome paints autofilled inputs with a white background and black text. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-fg);
+    -webkit-box-shadow: 0 0 0 1000px var(--color-card) inset;
+    caret-color: var(--color-fg);
+  }
+
+  /* The little clock/calendar glyphs default to black. */
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(0.5);
+    cursor: pointer;
+  }
+
+  input:disabled,
+  button:disabled,
+  textarea:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+    font-style: normal;
+    font-weight: inherit;
+  }
+}
+
+@utility container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1350px;
+  height: 100%;
+}
+
+@layer components {
+
+  .container{
+    @apply px-5 max-[1250px]:px-10
+  }
+
+  .container-fluid {
+    @apply mx-auto px-5 max-w-362.5;
+  }
+
+  .container-mini {
+    @apply mx-auto px-5 max-w-250;
+  }
+
+  .title {
+    @apply text-fg tracking-[-0.05em] [&_span]:text-current/60;
+  }
+
+  .title h1 {
+    @apply text-big max-[850px]:text-h1 max-[615px]:text-h2 mb-4 font-bold;
+  }
+
+  .title h2 {
+    @apply text-h2 max-[850px]:text-h3 max-[615px]:text-h3 font-medium leading-tight;
+  }
+
+  .title h3 {
+    @apply text-h3 max-[615px]:text-[1.4rem] font-extrabold;
+  }
+
+  .title h4 {
+    @apply text-lg font-medium;
+  }
+
+  .info {
+    @apply font-light mt-1.5 text-secondary tracking-[0.3px];
+  }
+
+  .info-2 {
+    @apply font-lighter text-secondary tracking-[0.3px];
+  }
+
+  .capital {
+    @apply uppercase font-mono text-muted font-bold text-xs;
+  }
+
+  .inner {
+    @apply py-35 max-[850px]:py-24 max-[615px]:py-16;
+  }
+
+  .inner-small {
+    @apply py-14 max-[615px]:py-10;
+  }
+
+  .inner-big {
+    @apply py-44 max-[850px]:py-32 max-[615px]:py-20;
+  }
+
+  .wrapper {
+    @apply flex flex-col min-h-full;
+  }
+
+  main {
+    @apply flex relative;
+  }
+
+  header {
+    @apply flex-[0_1_auto];
+  }
+
+  footer {
+    @apply flex-[1_0_auto];
+  }
+
+  section{
+    @apply relative
+  }
+
+  .circle{
+    @apply relative rounded-full w-3 h-3 after:z-2 after:bg-bg after:rounded-full after:absolute after:inset-0 after:animate-ping after:opacity-50 after:w-3 after:h-3
+  }
+
+  .appear{
+    @apply transition-all duration-1000 opacity-0 translate-y-10 group-[.active]:opacity-100  group-[.active]:translate-y-0 [&.active]:opacity-100  [&.active]:translate-y-0
+  }
+
+  .text-grad{
+    @apply text-transparent bg-clip-text bg-size-[100%_100%] transition-all duration-1500 group-[.active]:bg-size-[200%_300%]
+  }
+
+  .background{
+    @apply absolute inset-0 h-full w-full bg-transparent border-secondary-transparent2 bg-[linear-gradient(to_right,var(--color-secondary-transparent2)_0.5px,transparent_0.5px),linear-gradient(to_bottom,var(--color-secondary-transparent2)_0.5px,transparent_0.5px)] bg-size-[60px_60px] border-t border-b z-0
+  }
+
+  .background2{
+    @apply absolute inset-0 h-full w-full border-secondary-transparent2 bg-[radial-gradient(var(--color-secondary-transparent2)_3px,transparent_3px)] bg-size-[40px_40px] -z-1
+  }
+
+  .background-noise{
+    @apply absolute w-full h-full inset-0 opacity-[0.1] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]
+  }
+}

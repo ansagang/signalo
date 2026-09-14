@@ -1,0 +1,754 @@
+{
+  "lang": "en",
+  "title": "English",
+  "res": {},
+  "app": {
+    "meta": {
+      "title": "Signalo",
+      "description": "",
+      "keywords": []
+    },
+    "pages": {
+      "overview": {
+        "meta": {
+          "title": "Overview",
+          "description": "How your assistant is selling today.",
+          "keywords": [
+            "dashboard",
+            "sales bot"
+          ]
+        },
+        "greeting": "Welcome back",
+        "setup": {
+          "title": "Finish setting up",
+          "subtitle": "Three steps and your assistant can start selling.",
+          "knowledge": "Add what you sell to the knowledge base",
+          "persona": "Create a persona and give it a voice",
+          "channel": "Connect a channel so customers can reach it",
+          "catalogue": "Add what you sell to the catalogue"
+        },
+        "stats": {
+          "conversations": "Conversations",
+          "orders": "Orders",
+          "revenue": "Booked & sold",
+          "revenueSub": "Excluding cancelled",
+          "autoResolve": "Handled by bot",
+          "last30": "{count} in the last 30 days",
+          "handoffs": "{count} passed to a human",
+          "bookings": "Bookings",
+          "lowStock": "Low stock"
+        },
+        "recent": {
+          "title": "Recent conversations",
+          "viewAll": "View all",
+          "empty": "No conversations yet.",
+          "needsYou": "Needs you"
+        },
+        "todayBookings": {
+          "title": "Today's bookings",
+          "empty": "Nothing booked today.",
+          "viewAll": "All bookings"
+        }
+      },
+      "knowledgeBase": {
+        "meta": {
+          "title": "Knowledge Base",
+          "description": "Products, FAQs, flows, policies, and response templates"
+        },
+        "types": {
+          "product": {
+            "singular": "Product",
+            "plural": "Products"
+          },
+          "service": {
+            "singular": "Service",
+            "plural": "Services"
+          },
+          "faq": {
+            "singular": "FAQ",
+            "plural": "FAQS"
+          },
+          "flow": {
+            "singular": "Flow",
+            "plural": "Flows"
+          },
+          "policy": {
+            "singular": "Policy",
+            "plural": "Policies"
+          },
+          "template": {
+            "singular": "Template",
+            "plural": "Templates"
+          }
+        },
+        "table": {
+          "title": "Title",
+          "type": "Type",
+          "content": "Content",
+          "keywords": "Keywords",
+          "persona": "Persona",
+          "priority": "Priority",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "fields": {
+          "type": {
+            "label": "Type"
+          },
+          "title": {
+            "label": "Title",
+            "placeholder": "eg. Premium Plan"
+          },
+          "content": {
+            "label": "Content",
+            "placeholder": "eg. Describe this entry in details..."
+          },
+          "keywords": {
+            "label": "Keywords",
+            "placeholder": "comma-separated: price, plan, upgrade"
+          },
+          "priority": {
+            "label": "Priority"
+          },
+          "status": {
+            "label": "Status",
+            "active": "Active",
+            "draft": "Draft"
+          },
+          "price": {
+            "label": "Price",
+            "placeholder": "49900"
+          },
+          "currency": {
+            "label": "Currency",
+            "placeholder": "Select a currency"
+          },
+          "category": {
+            "label": "Category",
+            "placeholder": "Pricing"
+          },
+          "relatedQuestions": {
+            "label": "Related questions",
+            "placeholder": "How do I reset my password?"
+          },
+          "steps": {
+            "label": "Steps",
+            "placeholder": "Greet the customer"
+          },
+          "validUntil": {
+            "label": "Valid until",
+            "placeholder": "Pick a date"
+          },
+          "language": {
+            "label": "Language",
+            "placeholder": "English"
+          },
+          "persona": {
+            "label": "Persona"
+          }
+        },
+        "modals": {
+          "addTitle": "Add Entry",
+          "updateTitle": "Update Entry",
+          "add": "Add Entry",
+          "update": "Update Entry",
+          "cancel": "Cancel"
+        },
+        "entries": {
+          "one": "{count} entry",
+          "other": "{count} entries"
+        },
+        "movedNote": "Products and services now live in Catalogue."
+      },
+      "personas": {
+        "meta": {
+          "title": "Personas",
+          "description": "AI agents with unique personalities, tones, and behavior"
+        },
+        "table": {
+          "name": "Name",
+          "tone": "Tone",
+          "greeting": "Greeting",
+          "model": "Model",
+          "language": "Language",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "fields": {
+          "name": {
+            "label": "Name",
+            "placeholder": "eg. Main Support Bot"
+          },
+          "emoji": {
+            "label": "Emoji"
+          },
+          "tone": {
+            "label": "Tone"
+          },
+          "greeting": {
+            "label": "Greeting",
+            "placeholder": "Hello! How can I help you?"
+          },
+          "systemPrompt": {
+            "label": "System Prompt",
+            "placeholder": "You are a helpful customer support agent..."
+          },
+          "model": {
+            "label": "Model"
+          },
+          "temperature": {
+            "label": "Temperature"
+          },
+          "maxTokens": {
+            "label": "Max Tokens"
+          },
+          "fallbackBehavior": {
+            "label": "Fallback Behavior"
+          },
+          "language": {
+            "label": "Language"
+          },
+          "blockedTopics": {
+            "label": "Blocked Topics",
+            "placeholder": "Competitor pricing"
+          },
+          "escalationTriggers": {
+            "label": "Escalation Triggers",
+            "placeholder": "speak to manager, real person"
+          },
+          "status": {
+            "label": "Status",
+            "active": "Active",
+            "inactive": "Inactive"
+          }
+        },
+        "modals": {
+          "addTitle": "Add Persona",
+          "updateTitle": "Update Persona",
+          "add": "Add Persona",
+          "update": "Update Persona",
+          "cancel": "Cancel"
+        },
+        "entries": {
+          "one": "{count} persona",
+          "other": "{count} personas"
+        },
+        "tones": {
+          "friendly": "Friendly",
+          "professional": "Professional",
+          "persuasive": "Persuasive",
+          "technical": "Technical",
+          "custom": "Custom"
+        },
+        "models": {
+          "claude": "Claude",
+          "gpt": "GPT-4o"
+        },
+        "languages": {
+          "auto": "Auto-detect",
+          "kk": "Қазақша",
+          "ru": "Русский",
+          "en": "English"
+        },
+        "fallbacks": {
+          "escalate": "Escalate to human",
+          "retry": "Retry with clarification",
+          "apologize": "Apologize & end"
+        },
+        "playground": {
+          "placeholder": "Test a message…"
+        }
+      },
+      "conversations": {
+        "meta": {
+          "title": "Conversations",
+          "description": "Every chat your assistant has had, and the orders it took."
+        },
+        "searchPlaceholder": "Search by name, handle, or phone…",
+        "selectPrompt": "Pick a conversation to read it.",
+        "filters": {
+          "all": "All",
+          "open": "Open",
+          "escalated": "Escalated",
+          "handoff": "Needs a human",
+          "resolved": "Resolved"
+        },
+        "channels": {
+          "webchat": "Website",
+          "telegram": "Telegram",
+          "whatsapp": "WhatsApp",
+          "email": "Email",
+          "playground": "Playground"
+        },
+        "status": {
+          "open": "Open",
+          "needs_review": "Needs review",
+          "escalated": "Escalated",
+          "resolved": "Resolved",
+          "closed": "Closed"
+        },
+        "empty": {
+          "title": "Nothing here yet",
+          "subtitle": "Conversations appear as soon as a customer messages your assistant."
+        },
+        "transcript": {
+          "empty": "No messages in this conversation."
+        },
+        "reply": {
+          "placeholder": "Reply as a human…",
+          "send": "Send"
+        },
+        "actions": {
+          "resolve": "Resolve",
+          "reopen": "Reopen"
+        },
+        "labels": {
+          "agent": "You ·",
+          "bot": "Assistant ·",
+          "visitor": "Visitor"
+        },
+        "time": {
+          "justNow": "now",
+          "minutesShort": "m",
+          "hoursShort": "h",
+          "daysShort": "d"
+        }
+      },
+      "channels": {
+        "meta": {
+          "title": "Channels",
+          "description": "Where customers reach your assistant."
+        },
+        "types": {
+          "web": {
+            "add": "Add website widget",
+            "desc": "A chat bubble on your own site."
+          },
+          "telegram": {
+            "add": "Add Telegram bot",
+            "desc": "Your assistant answers inside Telegram."
+          }
+        },
+        "active": "Live",
+        "paused": "Paused",
+        "pause": "Pause",
+        "resume": "Resume",
+        "delete": "Delete",
+        "embedLabel": "Paste this before </body>",
+        "testLink": "Open the chat",
+        "rotateKey": "Rotate key",
+        "connect": "Connect webhook",
+        "telegramHelp": "Create a bot with @BotFather in Telegram, paste the token above, then connect. Your app needs a public HTTPS URL.",
+        "needPersona": "Create a persona first — a channel needs one to answer with.",
+        "fields": {
+          "name": "Name",
+          "persona": "Persona",
+          "personaPlaceholder": "Select a persona",
+          "botToken": "Bot token",
+          "botTokenPlaceholder": "123456:ABC-DEF…",
+          "personaHint": "The persona decides how this channel talks and what it knows.",
+          "replaceToken": "Replace",
+          "saveToken": "Save token"
+        },
+        "empty": {
+          "title": "No channels yet",
+          "subtitle": "Add a website widget or a Telegram bot so customers can start talking to your assistant."
+        },
+        "confirmDelete": {
+          "title": "Delete this channel?",
+          "body": "The widget stops working immediately and the embed key becomes invalid. Conversations are kept.",
+          "cancel": "Cancel"
+        },
+        "tabs": {
+          "setup": "Setup",
+          "look": "Appearance",
+          "install": "Install"
+        },
+        "tokenSet": "Token saved",
+        "tokenMissing": "No token",
+        "keyLabel": "Public key",
+        "installHint": "Paste this once, anywhere before </body>. Appearance changes apply without editing it again.",
+        "look": {
+          "accent": "Accent colour",
+          "position": "Position",
+          "left": "Bottom left",
+          "right": "Bottom right",
+          "size": "Button size",
+          "offset": "Edge spacing",
+          "title": "Window title",
+          "launcherLabel": "Button label",
+          "launcherLabelPlaceholder": "Chat with us",
+          "launcherLabelHint": "Leave empty for a round icon-only button.",
+          "greetingBubble": "Greeting bubble",
+          "greetingBubblePlaceholder": "Need help choosing?",
+          "greetingBubbleHint": "A one-line nudge that appears before anyone clicks. Shown once per visitor.",
+          "autoOpen": "Open by itself",
+          "autoOpenHint": "Opens the chat for first-time visitors after a delay.",
+          "autoOpenDelay": "After (seconds)",
+          "preview": "Preview",
+          "save": "Save appearance"
+        },
+        "connected": "Receiving",
+        "notConnected": "Not connected"
+      },
+      "login": {
+        "meta": {
+          "title": "Login",
+          "description": "Sign in to your Signalo account",
+          "keywords": [
+            "login",
+            "sign in"
+          ]
+        },
+        "title": "Welcome!",
+        "subtitle": "Log in to your account",
+        "info": "By signing in, you agree to our Terms and Privacy Policy.",
+        "fields": {
+          "email": {
+            "label": "Email",
+            "placeholder": "you@example.com"
+          },
+          "password": {
+            "label": "Password",
+            "placeholder": "••••••••"
+          }
+        },
+        "submit": "Sign in",
+        "forgotPassword": "Forgot password?"
+      },
+      "account": {
+        "meta": {
+          "title": "Account",
+          "description": "Your profile and language."
+        },
+        "fields": {
+          "fullName": "Full name",
+          "fullNamePlaceholder": "Jane Doe",
+          "username": "Username",
+          "usernamePlaceholder": "jane",
+          "email": "Email",
+          "language": "Language"
+        },
+        "save": "Save changes"
+      },
+      "catalogue": {
+        "meta": {
+          "title": "Catalogue",
+          "description": "What you sell — goods with stock, and services customers can book."
+        },
+        "tabs": {
+          "products": "Products",
+          "services": "Services"
+        },
+        "searchPlaceholder": "Search the catalogue…",
+        "addProduct": "Add product",
+        "addService": "Add service",
+        "edit": "Edit",
+        "delete": "Delete",
+        "paused": "Hidden",
+        "noDescription": "No description yet",
+        "minutes": "min",
+        "buffer": "buffer",
+        "parallel": "{n} at once",
+        "stock": {
+          "increase": "Add one",
+          "decrease": "Remove one",
+          "low": "Low stock",
+          "out": "Out of stock",
+          "untracked": "Stock not tracked"
+        },
+        "empty": {
+          "products": {
+            "title": "No products yet",
+            "subtitle": "Add what you sell. The assistant can only offer things that are in here, with the price and stock you set."
+          },
+          "services": {
+            "title": "No services yet",
+            "subtitle": "Add bookable work — a manicure, a consultation, a repair slot. Give it a duration and the assistant can book it."
+          }
+        },
+        "editor": {
+          "editProduct": "Edit product",
+          "editService": "Edit service",
+          "save": "Save",
+          "cancel": "Cancel"
+        },
+        "fields": {
+          "name": "Name",
+          "namePlaceholder": "e.g. Gel manicure",
+          "description": "Description",
+          "descriptionPlaceholder": "What the customer gets. The assistant reads this.",
+          "price": "Price",
+          "currency": "Currency",
+          "category": "Category",
+          "categoryPlaceholder": "Manicure",
+          "stock": "In stock",
+          "lowStockAt": "Warn at",
+          "duration": "Duration (min)",
+          "bufferMin": "Buffer (min)",
+          "maxParallel": "At once",
+          "activeLabel": "Available",
+          "activeHint": "The assistant can offer it",
+          "trackStock": "Track stock",
+          "trackStockHint": "Reduce on each order",
+          "image": "Photo",
+          "imageHint": "shown to customers in chat",
+          "leadTime": "Notice (min)"
+        },
+        "anyMaster": "Anyone can do it",
+        "slots": {
+          "title": "When it can start",
+          "help": "Customers are offered these start times and nothing in between. Pick a regular rhythm, or list exact times.",
+          "grid": "Every N minutes",
+          "fixed": "Exact times",
+          "stepLabel": "Start a new appointment",
+          "everyN": "every {n} min",
+          "timesLabel": "Start times",
+          "timesHint": "Comma separated, 24-hour. e.g. 11:00, 14:00, 17:00",
+          "needTimes": "Add at least one start time, like 11:00",
+          "noneSet": "No times set"
+        },
+        "masters": {
+          "title": "Who can do it",
+          "help": "Only the masters you pick here will be offered for this service. Pick nobody and anyone on the team can take it.",
+          "noStaff": "Add people under Business → Your team first.",
+          "noneSelected": "Nobody selected — anyone on the team can take this."
+        }
+      },
+      "bookings": {
+        "meta": {
+          "title": "Bookings",
+          "description": "Every appointment, and what it is worth."
+        },
+        "today": "Today",
+        "jumpToday": "Back to today",
+        "prevDay": "Previous day",
+        "nextDay": "Next day",
+        "addBooking": "New booking",
+        "deletedService": "Deleted service",
+        "noName": "No name given",
+        "countAndValue": "{n} booked · {value}",
+        "status": {
+          "booked": "Booked",
+          "confirmed": "Confirmed",
+          "completed": "Done",
+          "cancelled": "Cancelled",
+          "no_show": "No-show"
+        },
+        "empty": {
+          "title": "Nothing booked",
+          "subtitle": "Bookings appear here the moment the assistant takes one, or you can add one yourself."
+        },
+        "errors": {
+          "pickService": "Choose a service first",
+          "pickSlot": "Choose a time",
+          "needName": "The customer needs a name"
+        },
+        "fields": {
+          "service": "Service",
+          "servicePlaceholder": "Choose a service",
+          "date": "Date",
+          "staff": "With",
+          "anyStaff": "Anyone free",
+          "time": "Time",
+          "loadingSlots": "Checking free times…",
+          "noSlots": "Nothing free that day — try another date.",
+          "customerName": "Customer",
+          "customerContact": "Phone or handle",
+          "book": "Book it",
+          "cancel": "Cancel"
+        }
+      },
+      "business": {
+        "meta": {
+          "title": "Business",
+          "description": "Opening hours and the people who do the work."
+        },
+        "hours": {
+          "title": "Opening hours",
+          "subtitle": "The assistant only offers appointment times inside these hours.",
+          "open": "Open",
+          "closed": "Closed",
+          "closedAllDay": "Closed all day",
+          "save": "Save hours"
+        },
+        "team": {
+          "title": "Your team",
+          "subtitle": "Add the people customers can book with. Leave it empty and bookings are not tied to anyone.",
+          "add": "Add",
+          "namePlaceholder": "Name",
+          "rolePlaceholder": "Role (optional)",
+          "inactive": "Inactive",
+          "activate": "Activate",
+          "deactivate": "Pause",
+          "remove": "Remove",
+          "empty": "No one added yet.",
+          "shifts": "Shifts",
+          "saveShifts": "Save shifts",
+          "shiftsHelp": "When this person works. Appointments are only offered inside their shift and inside the shop's hours.",
+          "emptyHint": "Add the people customers can book with. Without anyone, bookings are not tied to a person."
+        }
+      }
+    },
+    "buttons": {},
+    "labels": {
+      "menu": "Menu",
+      "settings": "Settings",
+      "logOut": "Log out",
+      "switchLanguage": "Switch language",
+      "active": "active",
+      "draft": "draft",
+      "search": "Search by title, keyword, or content...",
+      "global": "Global",
+      "allPersonas": "All personas"
+    },
+    "res": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Enter a valid email",
+      "passwordRequired": "Password is required",
+      "passwordMin": "Password must be at least 6 characters",
+      "passwordIncorrect": "Incorrect email or password",
+      "typeRequired": "Type is required",
+      "titleRequired": "Title is required",
+      "titleMin": "Title must be at least 6 characters",
+      "contentRequired": "Content is required",
+      "contentMin": "Content must be at least 6 characters",
+      "keywordsRequired": "Keywords are required",
+      "keywordsMin": "Keywords must be at least 6 characters",
+      "priorityMin": "Priority must be at least 1",
+      "priorityMax": "Priority must be at most 10",
+      "keywordsMax": "Keywords must be at most 10",
+      "entryCreated": "Entry added successfully",
+      "entryCreateError": "Failed to add entry",
+      "entryDeleted": "Entry deleted successfully",
+      "personaCreated": "Persona added successfully",
+      "personaCreateError": "Failed to add persona",
+      "personaUpdated": "Persona updated successfully",
+      "personaUpdateError": "Failed to update persona",
+      "personaDeleted": "Persona deleted successfully",
+      "personaDeleteError": "Failed to delete persona",
+      "nameRequired": "Name is required",
+      "nameMin": "Name must be at least 2 characters",
+      "greetingRequired": "Greeting is required",
+      "systemPromptRequired": "System prompt is required",
+      "systemPromptMin": "System prompt must be at least 10 characters",
+      "messageSendError": "Could not send the message",
+      "conversationUpdated": "Conversation updated",
+      "conversationUpdateError": "Could not update the conversation",
+      "channelCreated": "Channel created",
+      "channelCreateError": "Could not create the channel",
+      "channelUpdated": "Saved",
+      "channelUpdateError": "Could not save the channel",
+      "channelDeleted": "Channel deleted",
+      "channelDeleteError": "Could not delete the channel",
+      "keyRotated": "New key generated — update your embed code",
+      "tokenSaved": "Bot token saved",
+      "telegramConnected": "Telegram connected",
+      "telegramConnectError": "Could not connect Telegram",
+      "accountUpdated": "Account updated",
+      "catalogueCreated": "Added",
+      "catalogueUpdated": "Saved",
+      "catalogueSaveError": "Could not save",
+      "productDeleted": "Product deleted",
+      "productDeleteError": "Could not delete the product",
+      "serviceDeleted": "Service deleted",
+      "serviceDeleteError": "Could not delete the service",
+      "stockUpdateError": "Could not update stock",
+      "bookingCreated": "Booked",
+      "bookingCreateError": "Could not book",
+      "bookingUpdated": "Updated",
+      "bookingUpdateError": "Could not update the booking",
+      "hoursSaved": "Hours saved",
+      "hoursSaveError": "Could not save the hours",
+      "staffCreated": "Added",
+      "staffCreateError": "Could not add",
+      "staffUpdateError": "Could not update",
+      "staffDeleted": "Removed",
+      "staffDeleteError": "Could not remove"
+    },
+    "global": {
+      "currencies": {
+        "kzt": "Tenge",
+        "usd": "Dollar",
+        "eur": "Euro",
+        "rub": "Ruble"
+      },
+      "days": {
+        "monday": {
+          "full": "Monday",
+          "short": "Mon"
+        },
+        "tuesday": {
+          "full": "Tuesday",
+          "short": "Tue"
+        },
+        "wednesday": {
+          "full": "Wednesday",
+          "short": "Wed"
+        },
+        "thursday": {
+          "full": "Thursday",
+          "short": "Thu"
+        },
+        "friday": {
+          "full": "Friday",
+          "short": "Fri"
+        },
+        "saturday": {
+          "full": "Saturday",
+          "short": "Sat"
+        },
+        "sunday": {
+          "full": "Sunday",
+          "short": "Sun"
+        }
+      },
+      "weekdaysShort": [
+        "Sun",
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "weekdaysFull": [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+      ],
+      "monthsShort": [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec"
+      ],
+      "months": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ]
+    }
+  }
+}

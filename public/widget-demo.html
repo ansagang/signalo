@@ -1,0 +1,156 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Widget test page — Signalo</title>
+<style>
+  :root {
+    --page: #ffffff; --ink: #14141a; --soft: #5b5b66;
+    --line: #e6e6ec; --card: #f6f6f9;
+  }
+  [data-scheme="dark"] {
+    --page: #101014; --ink: #f2f2f5; --soft: #a0a0ab;
+    --line: #26262e; --card: #17171d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    transition: background .2s, color .2s;
+  }
+  .bar {
+    position: sticky; top: 0; z-index: 10; background: var(--page);
+    border-bottom: 1px solid var(--line); padding: 12px 20px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .bar strong { font-size: 14px; margin-right: auto; }
+  input, select, button {
+    font: inherit; font-size: 13px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  input { min-width: 290px; font-family: ui-monospace, SFMono-Regular, monospace; }
+  button { cursor: pointer; border-color: transparent; background: var(--ink); color: var(--page); font-weight: 600; }
+  button.ghost { background: var(--card); color: var(--ink); border-color: var(--line); font-weight: 500; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 200px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -.02em; }
+  h2 { font-size: 19px; margin: 40px 0 10px; }
+  p { color: var(--soft); margin: 0 0 14px; }
+  .note { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+  .note code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12.5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-top: 18px; }
+  .tile { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); }
+  .tile .ph { height: 104px; background: linear-gradient(135deg, #2f2f3a, #63636f); }
+  .tile div.t { padding: 10px 12px; font-size: 14px; }
+  .missing { padding: 40px 0; }
+</style>
+
+<div class="bar">
+  <strong>Widget test page</strong>
+  <input id="key" placeholder="sg_live_…" spellcheck="false">
+  <button id="load">Load widget</button>
+  <button class="ghost" id="scheme">Dark page</button>
+  <button class="ghost" id="reset">Reset visitor</button>
+</div>
+
+<div class="wrap">
+  <h1>A pretend customer website</h1>
+  <p>
+    This page exists only to test the chat widget the way a real visitor sees it —
+    on someone else's site, in an iframe, with your own colours, position and
+    greeting applied.
+  </p>
+
+  <div class="note" id="status">Paste a channel key above and press <b>Load widget</b>.</div>
+
+  <h2>Things to try</h2>
+  <p>
+    Ask about a product or a service. Ask for a photo. Ask to book something.
+    Then open <b>Conversations</b> in the dashboard — the same chat is there, and
+    anything you reply as a human arrives back in this widget within a few seconds.
+  </p>
+
+  <div class="grid">
+    <div class="tile"><div class="ph"></div><div class="t">Some product</div></div>
+    <div class="tile"><div class="ph"></div><div class="t">Another product</div></div>
+    <div class="tile"><div class="ph"></div><div class="t">A third thing</div></div>
+  </div>
+
+  <h2>Filler</h2>
+  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+     incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+     nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+     fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+</div>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var keyInput = document.getElementById("key");
+  var status = document.getElementById("status");
+
+  keyInput.value = params.get("key") || localStorage.getItem("signalo:demo:key") || "";
+
+  function setStatus(html) { status.innerHTML = html; }
+
+  function load() {
+    var key = keyInput.value.trim();
+    if (!key) return setStatus("Enter a channel key first.");
+    localStorage.setItem("signalo:demo:key", key);
+
+    // widget.js guards against double-loading, so changing key needs a reload.
+    if (window.__signaloWidgetLoaded) {
+      location.search = "?key=" + encodeURIComponent(key);
+      return;
+    }
+
+    var s = document.createElement("script");
+    s.src = "/widget.js";
+    s.setAttribute("data-key", key);
+    s.defer = true;
+    s.onerror = function () { setStatus("Could not load /widget.js — is the dev server running?"); };
+    document.body.appendChild(s);
+
+    setStatus("Loading…");
+    var tries = 0;
+    var t = setInterval(function () {
+      if (window.Signalo) {
+        clearInterval(t);
+        var c = window.Signalo.config || {};
+        setStatus(
+          "Widget loaded. <code>accent " + c.accent + " · " + c.position +
+          " · " + (c.launcherLabel ? '"' + c.launcherLabel + '"' : "icon only") +
+          (c.autoOpen ? " · auto-opens" : "") + "</code>"
+        );
+      } else if (++tries > 40) {
+        clearInterval(t);
+        setStatus("Widget did not start. Check the key is right and the channel is live.");
+      }
+    }, 250);
+  }
+
+  document.getElementById("load").addEventListener("click", load);
+  keyInput.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
+
+  // Visitor-scoped state (greeting shown, auto-open fired) lives in localStorage.
+  document.getElementById("reset").addEventListener("click", function () {
+    Object.keys(localStorage)
+      .filter(function (k) { return k.indexOf("signalo:") === 0 && k !== "signalo:demo:key"; })
+      .forEach(function (k) { localStorage.removeItem(k); });
+    location.reload();
+  });
+
+  var schemeBtn = document.getElementById("scheme");
+  function applyScheme(v) {
+    document.documentElement.dataset.scheme = v;
+    schemeBtn.textContent = v === "dark" ? "Light page" : "Dark page";
+    localStorage.setItem("signalo:demo:scheme", v);
+  }
+  applyScheme(localStorage.getItem("signalo:demo:scheme") || "light");
+  schemeBtn.addEventListener("click", function () {
+    applyScheme(document.documentElement.dataset.scheme === "dark" ? "light" : "dark");
+  });
+
+  if (keyInput.value) load();
+})();
+</script>
