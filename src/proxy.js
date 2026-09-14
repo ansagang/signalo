@@ -12,7 +12,11 @@ const CRAWLABLE_PATHS = ["/sitemap.xml", "/robots.txt"];
  * per-channel webhook secret — so the blanket x-api-key gate would only
  * break them.
  */
-const PUBLIC_API_PREFIXES = ["/api/chat", "/api/channels/"];
+const PUBLIC_API_PREFIXES = [
+  "/api/chat",       // the widget's own conversation endpoint (+ /messages)
+  "/api/channels/",  // inbound provider webhooks
+  "/api/widget",     // launcher appearance, read by third-party sites
+];
 
 export async function proxy(request) {
   const dev = isDev();
@@ -25,12 +29,28 @@ export async function proxy(request) {
   if (pathname.startsWith("/api")) {
     const isPublic = PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
 
+    // A CORS preflight carries no custom headers by definition, so it can
+    // never satisfy the api-key gate. Rejecting it here produced the
+    // misleading "No 'Access-Control-Allow-Origin'" error in the browser
+    // rather than a readable 401.
+    if (request.method === "OPTIONS") {
+      return NextResponse.next();
+    }
+
     if (!dev && !isPublic) {
       const api_key = request.headers.get("x-api-key");
       if (api_key !== process.env.API_KEY) {
         return NextResponse.json(
           { success: false, message: "Invalid api key" },
-          { status: 401 },
+          {
+            status: 401,
+            // Without these the browser reports a CORS failure instead of
+            // the actual reason the request was refused.
+            headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Headers": "Content-Type, ngrok-skip-browser-warning",
+            },
+          },
         );
       }
     }
