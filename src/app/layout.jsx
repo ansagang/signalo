@@ -16,8 +16,36 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * Where absolute URLs in metadata point.
+ *
+ * `new URL(process.env.URL)` threw at build time whenever URL was unset or
+ * malformed, and because /_not-found renders through this layout the whole
+ * deploy failed with "Failed to collect configuration for /_not-found".
+ * Metadata is not worth failing a build over.
+ */
+function siteUrl() {
+  const candidates = [
+    process.env.URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`,
+    process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`,
+    "http://localhost:3000",
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      return new URL(candidate);
+    } catch {
+      // Try the next one rather than taking the build down.
+    }
+  }
+  return undefined;
+}
+
 export const metadata = {
-  metadataBase: new URL(process.env.URL),
+  metadataBase: siteUrl(),
   authors: [{ name: "ansagang", url: "https://github.com/ansagang" }],
   creator: "ansagang",
   robots: {

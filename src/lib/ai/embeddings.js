@@ -1,9 +1,21 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+/**
+ * Built on first use, not at import time.
+ *
+ * The OpenAI SDK throws in its constructor when the key is missing, and this
+ * module is reachable from server components — so a build without the key set
+ * failed while collecting page data rather than at the point of use.
+ */
+let _client;
+
+function client() {
+  if (!_client) _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _client;
+}
 
 export async function generateEmbedding(text) {
-  const response = await openai.embeddings.create({
+  const response = await client().embeddings.create({
     model: "text-embedding-3-small",
     input: text,
   });
