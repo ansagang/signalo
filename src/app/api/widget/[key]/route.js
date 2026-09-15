@@ -33,6 +33,9 @@ export const WIDGET_DEFAULTS = {
   autoOpenDelay: 8,
   theme: "dark",
   greetingBubble: "",
+  // The assistant's icon belongs to the channel, so the same persona can be
+  // branded differently on a website and in Telegram.
+  avatarShape: "bot",
   // Panel colours. Left unset they follow the chosen theme, so a seller who
   // only picks an accent still gets a coherent window.
   panelBg: null,
@@ -80,15 +83,6 @@ export async function GET(request, { params }) {
     panelBorder: theme.panelBorder,
   };
 
-  // The persona icon is stored as `icon:<shape>:<colour>`. The launcher is
-  // plain JS with no React, so hand it the parts rather than the token —
-  // otherwise it would print the string itself.
-  const raw = config.avatar || persona?.icon || "";
-  const parts = typeof raw === "string" && raw.startsWith("icon:") ? raw.split(":") : null;
-  // Any other token-shaped value (an older `preset:…`) is not an emoji and
-  // must not reach the launcher as text.
-  const emoji = typeof raw === "string" && !raw.includes(":") ? raw : "";
-
   return Response.json(
     {
       ok: true,
@@ -97,9 +91,7 @@ export async function GET(request, { params }) {
         title: config.title || channel.name,
         subtitle: config.subtitle || persona?.name || "",
         // emoji pass straight through; icon presets become shape + colour
-        avatar: emoji,
-        avatarShape: parts ? parts[1] : emoji ? null : "bot",
-        avatarColor: parts ? parts[2] : null,
+        avatarShape: config.avatarShape || "bot",
       },
     },
     { headers: { ...CORS, "Cache-Control": "public, max-age=60" } },

@@ -35,13 +35,25 @@
 
   var DEFAULTS = {
     accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
-    launcherLabel: "", title: "Chat", subtitle: "", avatar: "", avatarShape: null, avatarColor: null,
+    launcherLabel: "", title: "Chat", subtitle: "", avatarShape: "bot",
     autoOpen: false, autoOpenDelay: 8, theme: "dark", greetingBubble: "",
   };
 
   function attr(name) {
     var v = script.getAttribute("data-" + name);
     return v === null ? undefined : v;
+  }
+
+  /** Readable ink for a background — accents range from near-white to near-black. */
+  function inkOn(hex) {
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return "#000";
+    var h = m[1];
+    if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    var parts = [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; });
+    var lin = function (c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    var l = 0.2126 * lin(parts[0]) + 0.7152 * lin(parts[1]) + 0.0722 * lin(parts[2]);
+    return l > 0.45 ? "#0a0a0c" : "#ffffff";
   }
 
   function boot(config) {
@@ -70,7 +82,8 @@
       "background:" + config.accent, "box-shadow:0 6px 24px rgba(0,0,0,.28)",
       "z-index:2147483646", "display:inline-flex", "align-items:center", "gap:8px",
       "justify-content:center", "transition:transform .18s ease", "padding:0 " + (config.launcherLabel ? "18px" : "0"),
-      "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif", "color:#000",
+      "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+      "color:" + inkOn(config.accent),
     ].join(";");
 
     // The same shapes the dashboard offers, as inline paths — the launcher
@@ -106,12 +119,15 @@
     var ICON_CHAT =
       '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
     var ICON_CLOSE =
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 
     function paintLauncher() {
       if (open) { launcher.innerHTML = ICON_CLOSE; return; }
+      // Proportional to the button and deliberately generous — a small glyph
+      // in a large circle reads as an afterthought.
+      var glyph = Math.round(size * 0.58);
       var avatar = config.avatarShape
-        ? shapeSvg(config.avatarShape, 24)
+        ? shapeSvg(config.avatarShape, glyph)
         : config.avatar
           ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
           : ICON_CHAT;

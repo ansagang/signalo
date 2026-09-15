@@ -13,7 +13,6 @@ import { useSyncSearchParam } from "@/hooks/use-sync-search-param";
 import useDebounce from "@/hooks/use-debounce";
 import { cn, createdAtDecode } from "@/lib/utils";
 import { customerLabel, initialsFor, relativeTime, money } from "@/lib/display";
-import PersonaAvatar from "@/components/ui/persona-avatar";
 import { showError, showSuccess } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -243,10 +242,7 @@ function Transcript({ conversation, language, p, res }) {
             {conversation.personas?.name && (
               <>
                 <span>·</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <PersonaAvatar icon={conversation.personas.icon} size={14} rounded="rounded-[4px]" />
-                  {conversation.personas.name}
-                </span>
+                <span>{conversation.personas.name}</span>
               </>
             )}
           </div>

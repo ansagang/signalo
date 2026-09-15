@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import ChatPanel from "@/components/chat/chat-panel";
-import PersonaAvatar from "@/components/ui/persona-avatar";
+import BotIcon from "@/components/ui/bot-icon";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -71,10 +71,10 @@ export default async function PublicChatPage({ params }) {
     // launcher — send button, customer bubbles and the header dot.
     <main className="h-dvh flex flex-col bg-bg" style={palette}>
       <header className="flex items-center gap-3 px-4 py-3 border-b border-secondary-transparent shrink-0">
-        <PersonaAvatar icon={persona.icon} size={36} />
+        <BotIcon shape={config.avatarShape} accent={palette["--color-accent"]} size={36} />
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-fg truncate">{title}</p>
-          <p className="text-[11px] opacity-60 flex items-center gap-1.5">
+          <p className="text-[11px] opacity-75 flex items-center gap-1.5">
             <span className="size-1.5 rounded-full bg-accent animate-pulse" />
             {persona.name}
           </p>
@@ -83,9 +83,10 @@ export default async function PublicChatPage({ params }) {
 
       <ChatPanel
         publicKey={key}
+        botShape={config.avatarShape}
+        botAccent={palette["--color-accent"]}
         greeting={persona.greeting}
         personaName={persona.name}
-        personaIcon={persona.icon}
         className="flex-1 min-h-0"
       />
     </main>

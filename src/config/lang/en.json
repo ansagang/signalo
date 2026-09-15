@@ -221,7 +221,6 @@
             "active": "Active",
             "inactive": "Inactive"
           },
-          "avatar": "Avatar",
           "traits": "Anything else about its manner"
         },
         "modals": {
@@ -471,7 +470,9 @@
           "placement": "Where it sits",
           "wording": "What it says",
           "fineTune": "Exact colours",
-          "fineTuneHint": "Override any individual colour. Picking a look above resets these."
+          "fineTuneHint": "Override any individual colour. Picking a look above resets these.",
+          "icon": "Assistant icon",
+          "iconHint": "Shown on the chat button and in the window header. Pick a shape, then its background."
         },
         "connected": "Receiving",
         "notConnected": "Not connected"

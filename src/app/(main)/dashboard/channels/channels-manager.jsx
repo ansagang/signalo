@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Panel, EmptyState, Loading, Segmented, Toggle, Hint } from "@/components/ui/page";
-import PersonaAvatar from "@/components/ui/persona-avatar";
+import BotIcon, { BotIconPicker } from "@/components/ui/bot-icon";
 import {
   CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon, PlusIcon,
   RefreshCwIcon, SendIcon, Trash2Icon,
@@ -30,6 +30,7 @@ const WIDGET_DEFAULTS = {
   accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
   launcherLabel: "", title: "", autoOpen: false, autoOpenDelay: 8, greetingBubble: "",
   theme: "dark", panelBg: null, panelText: null, panelSurface: null,
+  avatarShape: "bot",
 };
 
 /** A colour field with swatches and a native picker. */
@@ -374,7 +375,22 @@ function ChannelCard({ channel, personas, p, res, base }) {
         {tab === "look" && (
           <div className="grid gap-6 laptop-2:grid-cols-[minmax(0,1fr)_280px]">
             <div className="space-y-6 min-w-0">
-              {/* 1 — pick a look */}
+              {/* 1 — the assistant's icon */}
+              <div>
+                <p className="text-[13px] font-medium text-fg mb-1">{p.look.icon}</p>
+                <Hint className="mb-3">{p.look.iconHint}</Hint>
+                <div className="flex items-start gap-4">
+                  <BotIcon shape={config.avatarShape} accent={config.accent} size={52} />
+                  <BotIconPicker
+                    shape={config.avatarShape}
+                    accent={config.accent}
+                    onChange={(shape) => setCfg("avatarShape", shape)}
+                    className="flex-1 min-w-0"
+                  />
+                </div>
+              </div>
+
+              {/* 2 — pick a look */}
               <div>
                 <p className="text-[13px] font-medium text-fg mb-1">{p.look.presets}</p>
                 <Hint className="mb-3">{p.look.presetsHint}</Hint>
@@ -491,6 +507,7 @@ function ChannelCard({ channel, personas, p, res, base }) {
                         size: Number(config.size) || 56,
                         offset: Number(config.offset) || 20,
                         autoOpenDelay: Number(config.autoOpenDelay) || 8,
+                        avatarShape: config.avatarShape || "bot",
                       },
                     },
                     res.channelUpdated,
@@ -602,7 +619,7 @@ function WidgetPreview({ config, channel, p }) {
             className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 min-w-0"
             style={{ borderBottom: `1px solid ${border}` }}
           >
-            <PersonaAvatar icon={channel.personas?.icon} size={18} rounded="rounded-[5px]" />
+            <BotIcon shape={config.avatarShape} accent={accent} size={18} rounded="rounded-[5px]" />
             <span className="text-[9px] font-semibold truncate min-w-0">
               {config.title || channel.name}
             </span>
@@ -647,12 +664,7 @@ function WidgetPreview({ config, channel, p }) {
           }}
         >
           <span className="text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 px-0.5">
-            <PersonaAvatar
-              icon={channel.personas?.icon}
-              size={14}
-              rounded="rounded-full"
-              className="!bg-transparent"
-            />
+            <BotIcon shape={config.avatarShape} accent={accent} size={16} bare />
             {config.launcherLabel}
           </span>
         </div>

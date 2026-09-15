@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Section, Panel, Loading, EmptyState, Hint, Segmented } from "@/components/ui/page";
-import PersonaAvatar, { AvatarPicker, DEFAULT_ICON, buildIcon } from "@/components/ui/persona-avatar";
 import ChatPanel from "@/components/chat/chat-panel";
 import { MODEL_KEYS, MODELS } from "@/lib/ai/models";
 import {
@@ -36,7 +35,7 @@ const lengthOf = (tokens) =>
   LENGTHS.reduce((best, l) => (Math.abs(l.tokens - (tokens || 1024)) < Math.abs(best.tokens - (tokens || 1024)) ? l : best)).key;
 
 const emptyPersona = {
-  name: "", icon: DEFAULT_ICON, tone: "friendly", greeting: "", prompt: "",
+  name: "", tone: "friendly", greeting: "", prompt: "",
   traits: "", model: "claude", is_active: false, max_tokens: 1024,
   fallback_behavior: "escalate", language: "auto",
   blocked_topics: "", escalation_triggers: "", preset_id: "custom",
@@ -105,7 +104,6 @@ export default function PersonasManager({ language }) {
                 : "bg-transparent border-transparent hover:bg-hover",
             )}
           >
-            <PersonaAvatar icon={persona.icon} name={persona.name} size={34} />
             <span className="min-w-0 flex-1">
               <span className="block text-[13px] font-medium text-fg truncate">{persona.name}</span>
               <span className="block text-[11px] text-muted truncate">
@@ -170,7 +168,6 @@ function PersonaEditor({ persona, p, res, language }) {
       <div className="min-w-0">
         {/* sticky action bar so Save is always reachable */}
         <div className="flex items-center gap-3 mb-6 sticky top-0 z-10 bg-bg py-2 -my-2">
-          <PersonaAvatar icon={form.icon} name={form.name} size={40} />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-semibold text-fg truncate">{form.name || p.fields.name.placeholder}</p>
             <p className="text-[12px] text-secondary">
@@ -213,11 +210,6 @@ function PersonaEditor({ persona, p, res, language }) {
               <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={p.fields.name.placeholder} />
               <Hint>{p.sections.identity.nameHint}</Hint>
             </Field>
-
-            <div>
-              <p className="text-[13px] text-fg mb-2">{p.fields.avatar}</p>
-              <AvatarPicker value={form.icon} onChange={(v) => set("icon", v)} />
-            </div>
           </Panel>
         </Section>
 
@@ -335,7 +327,6 @@ function PersonaEditor({ persona, p, res, language }) {
             personaId={persona.id}
             greeting={persona.greeting}
             personaName={persona.name}
-            personaIcon={persona.icon}
             placeholder={p.playground.placeholder}
             className="flex-1 min-h-0"
           />
@@ -368,10 +359,10 @@ function PersonaEditor({ persona, p, res, language }) {
 /* ───────────────────────────── new persona ───────────────────────────── */
 
 const PRESETS = [
-  { tone: "friendly", icon: buildIcon("smile", "mint") },
-  { tone: "professional", icon: buildIcon("headset", "ocean") },
-  { tone: "persuasive", icon: buildIcon("sparkles", "rose") },
-  { tone: "technical", icon: buildIcon("wrench", "slate") },
+  { tone: "friendly" },
+  { tone: "professional" },
+  { tone: "persuasive" },
+  { tone: "technical" },
 ];
 
 function NewPersonaDialog({ p, onCreate, onClose, pending }) {
@@ -397,7 +388,6 @@ function NewPersonaDialog({ p, onCreate, onClose, pending }) {
                 }
                 className="text-left p-3 rounded-module border border-border hover:border-border-hover transition-colors cursor-pointer disabled:opacity-50"
               >
-                <PersonaAvatar icon={preset.icon} name={p.tones[preset.tone]} size={32} className="mb-2" />
                 <p className="text-[13px] font-semibold text-fg">{p.tones[preset.tone]}</p>
                 <p className="text-[11px] text-muted mt-0.5 leading-relaxed line-clamp-2">
                   {p.toneHints[preset.tone]}
