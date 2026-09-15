@@ -6,6 +6,8 @@ import {
   deleteChannel,
   rotatePublicKey,
   connectTelegram,
+  verifyWhatsApp,
+  verifyEmail,
 } from "@/actions/channels";
 
 export function useChannels() {
@@ -26,6 +28,8 @@ export const useCreateChannel = invalidating(createChannel);
 export const useDeleteChannel = invalidating(deleteChannel);
 export const useRotateKey = invalidating(rotatePublicKey);
 export const useConnectTelegram = invalidating(connectTelegram);
+export const useVerifyWhatsApp = invalidating(verifyWhatsApp);
+export const useVerifyEmail = invalidating(verifyEmail);
 
 export function useUpdateChannel() {
   const qc = useQueryClient();

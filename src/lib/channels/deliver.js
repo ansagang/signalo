@@ -7,6 +7,9 @@
  * channel's API, which is what this does.
  */
 
+import { sendWhatsAppText, whatsappNumber } from "./whatsapp";
+import { sendEmail, emailAddressOf, replySubject } from "./email";
+
 /** `telegram:<channelId>:<chatId>` → chatId */
 export function telegramChatId(conversation) {
   const parts = (conversation?.external_session_id || "").split(":");
@@ -56,6 +59,65 @@ export async function deliverToCustomer({ supabase, conversation, text }) {
     if (!chatId) return { ok: false, error: "Could not work out the Telegram chat." };
 
     const sent = await sendTelegram({ token, chatId, text });
+    return sent.ok
+      ? { ok: true, delivered: true, messageId: sent.messageId }
+      : { ok: false, error: sent.error };
+  }
+
+  if (conversation.channel === "whatsapp") {
+    if (!conversation.channel_id) {
+      return { ok: false, error: "This conversation is not linked to a channel." };
+    }
+
+    const { data: channel } = await supabase
+      .from("channels")
+      .select("secrets")
+      .eq("id", conversation.channel_id)
+      .maybeSingle();
+
+    const token = channel?.secrets?.access_token;
+    const phoneNumberId = channel?.secrets?.phone_number_id;
+    if (!token || !phoneNumberId) {
+      return { ok: false, error: "The WhatsApp access token or phone number id is missing." };
+    }
+
+    const to = whatsappNumber(conversation);
+    if (!to) return { ok: false, error: "Could not work out the WhatsApp number." };
+
+    const sent = await sendWhatsAppText({ token, phoneNumberId, to, text });
+    return sent.ok
+      ? { ok: true, delivered: true, messageId: sent.messageId }
+      : { ok: false, error: sent.error };
+  }
+
+  if (conversation.channel === "email") {
+    if (!conversation.channel_id) {
+      return { ok: false, error: "This conversation is not linked to a channel." };
+    }
+
+    const { data: channel } = await supabase
+      .from("channels")
+      .select("secrets, config")
+      .eq("id", conversation.channel_id)
+      .maybeSingle();
+
+    const apiKey = channel?.secrets?.api_key || process.env.RESEND_API_KEY;
+    const from = channel?.config?.address;
+    if (!apiKey || !from) {
+      return { ok: false, error: "The email channel has no sending address or API key yet." };
+    }
+
+    const to = emailAddressOf(conversation);
+    if (!to) return { ok: false, error: "Could not work out the customer's address." };
+
+    const sent = await sendEmail({
+      apiKey,
+      from,
+      fromName: channel?.config?.from_name || null,
+      to,
+      subject: replySubject(conversation.subject || conversation.customer_name || ""),
+      text,
+    });
     return sent.ok
       ? { ok: true, delivered: true, messageId: sent.messageId }
       : { ok: false, error: sent.error };

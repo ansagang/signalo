@@ -20,6 +20,16 @@ function newPublicKey() {
  */
 const SAFE_COLUMNS = "id, user_id, persona_id, type, name, public_key, config, is_active, created_at, updated_at";
 
+/** Secret keys a client may write, per channel type. Nothing else is accepted. */
+const SECRET_FIELDS = {
+  telegram: ["bot_token"],
+  whatsapp: ["access_token", "phone_number_id", "app_secret"],
+  email: ["api_key"],
+  web: [],
+};
+
+const CHANNEL_TYPES = ["web", "telegram", "whatsapp", "email"];
+
 export async function getChannels() {
   const { supabase, user } = await scoped();
   if (!user) return [];
@@ -37,15 +47,36 @@ export async function getChannels() {
   if (error) throw error;
 
   return (data || []).map(({ secrets, ...channel }) => {
-    const token = secrets?.bot_token || "";
+    const s = secrets || {};
+
+    // "Has a credential" differs per channel, but the card only needs one flag.
+    const token =
+      channel.type === "whatsapp" ? s.access_token || ""
+      : channel.type === "email" ? s.api_key || ""
+      : s.bot_token || "";
+
+    // Enough to recognise which account this is without handing the secret to
+    // the browser. A Telegram token is "<bot id>:<secret>"; the id half is
+    // public anyway, the rest stays hidden.
+    const hint =
+      !token ? null
+      : channel.type === "telegram" ? `${token.split(":")[0]}:••••••${token.slice(-4)}`
+      : `••••••${token.slice(-4)}`;
+
     return {
       ...channel,
       has_token: Boolean(token),
-      has_webhook: Boolean(secrets?.webhook_secret),
-      // Enough to recognise which bot this is without handing the secret to
-      // the browser. A Telegram token is "<bot id>:<secret>"; the id half is
-      // public anyway, the rest stays hidden.
-      token_hint: token ? `${token.split(":")[0]}:••••••${token.slice(-4)}` : null,
+      has_webhook:
+        channel.type === "whatsapp" ? Boolean(s.verify_token)
+        : channel.type === "email" ? Boolean(s.inbound_secret)
+        : Boolean(s.webhook_secret),
+      token_hint: hint,
+      // WhatsApp needs both halves before it can send at all.
+      wa_phone_id: channel.type === "whatsapp" ? s.phone_number_id || null : undefined,
+      has_app_secret: channel.type === "whatsapp" ? Boolean(s.app_secret) : undefined,
+      // Shown so it can be pasted into the provider's console.
+      verify_token: channel.type === "whatsapp" ? s.verify_token || null : undefined,
+      inbound_secret: channel.type === "email" ? s.inbound_secret || null : undefined,
     };
   });
 }
@@ -53,14 +84,19 @@ export async function getChannels() {
 export async function createChannel({ type, name, persona_id }) {
   const { supabase, user } = await scoped();
   if (!user) return { success: false, message: "Unauthorized" };
-  if (!["web", "telegram"].includes(type)) {
+  if (!CHANNEL_TYPES.includes(type)) {
     return { success: false, message: "Unsupported channel type" };
   }
 
   // Number repeats so several channels of a type stay tellable apart.
   let finalName = name?.trim();
   if (!finalName) {
-    const base = type === "web" ? "Website widget" : "Telegram bot";
+    const base = {
+      web: "Website widget",
+      telegram: "Telegram bot",
+      whatsapp: "WhatsApp",
+      email: "Email inbox",
+    }[type];
     const { count } = await supabase
       .from("channels")
       .select("id", { count: "exact", head: true })
@@ -77,6 +113,12 @@ export async function createChannel({ type, name, persona_id }) {
       type,
       name: finalName,
       public_key: newPublicKey(),
+      secrets:
+        type === "whatsapp"
+          ? { verify_token: crypto.randomUUID().replace(/-/g, "") }
+          : type === "email"
+            ? { inbound_secret: crypto.randomUUID().replace(/-/g, "") }
+            : {},
     })
     .select(SAFE_COLUMNS)
     .single();
@@ -94,19 +136,21 @@ export async function updateChannel(id, updates) {
     if (updates[key] !== undefined) patch[key] = updates[key];
   }
 
-  // bot_token arrives from the form but lives in the write-only secrets column.
-  if (updates.bot_token !== undefined) {
-    const { data: current } = await supabase
-      .from("channels")
-      .select("secrets")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+  // Credentials arrive from the form but live in the write-only secrets column.
+  const { data: current } = await supabase
+    .from("channels")
+    .select("type, secrets")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-    patch.secrets = {
-      ...(current?.secrets || {}),
-      bot_token: updates.bot_token || null,
-    };
+  if (!current) return { success: false, message: "Channel not found" };
+
+  const allowed = SECRET_FIELDS[current.type] || [];
+  const touched = allowed.filter((key) => updates[key] !== undefined);
+  if (touched.length) {
+    patch.secrets = { ...(current.secrets || {}) };
+    for (const key of touched) patch.secrets[key] = updates[key] || null;
   }
 
   const { error } = await supabase
@@ -220,4 +264,87 @@ export async function connectTelegram(id) {
     .eq("id", channel.id);
 
   return { success: true, message: "Connected", webhook };
+}
+
+/**
+ * WhatsApp is wired up in Meta's dashboard, not over an API — there is no
+ * setWebhook equivalent. So instead of connecting, this proves the credentials
+ * work and reports which number they belong to.
+ */
+export async function verifyWhatsApp(id) {
+  const { supabase, user } = await scoped();
+  if (!user) return { success: false, message: "Unauthorized" };
+
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("id, secrets")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!channel) return { success: false, message: "Channel not found" };
+
+  const token = channel.secrets?.access_token;
+  const phoneNumberId = channel.secrets?.phone_number_id;
+  if (!token || !phoneNumberId) {
+    return { success: false, message: "Add the access token and phone number id first" };
+  }
+
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/${phoneNumberId}?fields=display_phone_number,verified_name`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const body = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    return { success: false, message: body?.error?.message || `Meta returned ${res.status}` };
+  }
+
+  return {
+    success: true,
+    message: `Connected to ${body.verified_name || ""} ${body.display_phone_number || ""}`.trim(),
+  };
+}
+
+/** Confirm the Resend key is live before anyone waits on a silent failure. */
+export async function verifyEmail(id) {
+  const { supabase, user } = await scoped();
+  if (!user) return { success: false, message: "Unauthorized" };
+
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("id, secrets, config")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!channel) return { success: false, message: "Channel not found" };
+  if (!channel.config?.address) return { success: false, message: "Set the sending address first" };
+
+  const apiKey = channel.secrets?.api_key || process.env.RESEND_API_KEY;
+  if (!apiKey) return { success: false, message: "Add the Resend API key first" };
+
+  const res = await fetch("https://api.resend.com/domains", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { success: false, message: body?.message || `Resend returned ${res.status}` };
+  }
+
+  const { data } = await res.json().catch(() => ({ data: [] }));
+  const domain = String(channel.config.address).split("@")[1]?.toLowerCase();
+  const known = (data || []).find((d) => d.name?.toLowerCase() === domain);
+
+  if (!known) {
+    return {
+      success: false,
+      message: `Resend has no verified domain for ${domain}. Add and verify it in Resend first.`,
+    };
+  }
+  if (known.status !== "verified") {
+    return { success: false, message: `${domain} is ${known.status} in Resend — finish verification first.` };
+  }
+
+  return { success: true, message: `Ready to send from ${channel.config.address}` };
 }

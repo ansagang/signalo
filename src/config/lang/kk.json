@@ -387,6 +387,14 @@
           "telegram": {
             "add": "Telegram бот қосу",
             "desc": "Ассистент Telegram ішінде жауап береді."
+          },
+          "whatsapp": {
+            "add": "WhatsApp",
+            "desc": "WhatsApp Business нөміріңізде клиенттерге жауап береді."
+          },
+          "email": {
+            "add": "Email",
+            "desc": "Қолдау поштасына келген хаттарға жауап береді."
           }
         },
         "active": "Қосулы",
@@ -408,7 +416,22 @@
           "botTokenPlaceholder": "123456:ABC-DEF…",
           "personaHint": "Персона арнаның қалай сөйлейтінін және не білетінін анықтайды.",
           "replaceToken": "Ауыстыру",
-          "saveToken": "Токенді сақтау"
+          "saveToken": "Токенді сақтау",
+          "waToken": "Тұрақты access token",
+          "waTokenPlaceholder": "EAAG… Meta қолданбаңыздан",
+          "waPhoneId": "Phone number ID",
+          "waPhoneIdPlaceholder": "15551234567890 (телефон нөмірі емес)",
+          "waAppSecret": "App secret",
+          "waAppSecretPlaceholder": "Meta вебхуктарына қол қояды — ұсынылады",
+          "callbackUrl": "Callback URL",
+          "verifyToken": "Verify token",
+          "emailAddress": "Жіберу адресі",
+          "emailAddressPlaceholder": "hello@yourdomain.com",
+          "emailFromName": "Жіберуші аты",
+          "emailFromNamePlaceholder": "Бизнесіңіздің атауы",
+          "emailApiKey": "Resend API кілті",
+          "emailApiKeyPlaceholder": "re_…",
+          "inboundUrl": "Кіріс хаттарға арналған URL"
         },
         "empty": {
           "title": "Әзірге арна жоқ",
@@ -475,7 +498,10 @@
           "iconHint": "Чат түймесінде және терезе тақырыбында көрінеді. Пішінді, сосын фонды таңдаңыз."
         },
         "connected": "Қабылдауда",
-        "notConnected": "Қосылмаған"
+        "notConnected": "Қосылмаған",
+        "checkConnection": "Байланысты тексеру",
+        "whatsappHelp": "Meta → WhatsApp → Configuration бөлімінде callback URL мен verify token енгізіп, \"messages\" өрісіне жазылыңыз.",
+        "emailHelp": "Провайдеріңіздің кіріс маршрутын (Resend, Postmark, SendGrid не Mailgun) осы URL-ге бағыттаңыз. Құпия сөз ішінде — пароль ретінде сақтаңыз."
       },
       "login": {
         "meta": {

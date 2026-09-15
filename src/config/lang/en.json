@@ -387,6 +387,14 @@
           "telegram": {
             "add": "Add Telegram bot",
             "desc": "Your assistant answers inside Telegram."
+          },
+          "whatsapp": {
+            "add": "WhatsApp",
+            "desc": "Replies to customers on your WhatsApp Business number."
+          },
+          "email": {
+            "add": "Email",
+            "desc": "Answers mail sent to your support inbox."
           }
         },
         "active": "Live",
@@ -408,7 +416,22 @@
           "botTokenPlaceholder": "123456:ABC-DEF…",
           "personaHint": "The persona decides how this channel talks and what it knows.",
           "replaceToken": "Replace",
-          "saveToken": "Save token"
+          "saveToken": "Save token",
+          "waToken": "Permanent access token",
+          "waTokenPlaceholder": "EAAG… from your Meta app",
+          "waPhoneId": "Phone number ID",
+          "waPhoneIdPlaceholder": "15551234567890 (not the phone number)",
+          "waAppSecret": "App secret",
+          "waAppSecretPlaceholder": "Signs Meta's webhooks — strongly recommended",
+          "callbackUrl": "Callback URL",
+          "verifyToken": "Verify token",
+          "emailAddress": "Sending address",
+          "emailAddressPlaceholder": "hello@yourdomain.com",
+          "emailFromName": "From name",
+          "emailFromNamePlaceholder": "Your shop's name",
+          "emailApiKey": "Resend API key",
+          "emailApiKeyPlaceholder": "re_…",
+          "inboundUrl": "Inbound webhook URL"
         },
         "empty": {
           "title": "No channels yet",
@@ -475,7 +498,10 @@
           "iconHint": "Shown on the chat button and in the window header. Pick a shape, then its background."
         },
         "connected": "Receiving",
-        "notConnected": "Not connected"
+        "notConnected": "Not connected",
+        "checkConnection": "Check connection",
+        "whatsappHelp": "In Meta → WhatsApp → Configuration, paste the callback URL and verify token, then subscribe to the \"messages\" field.",
+        "emailHelp": "Point your provider's inbound route (Resend, Postmark, SendGrid or Mailgun) at this URL. The secret is already in it — treat it as a password."
       },
       "login": {
         "meta": {

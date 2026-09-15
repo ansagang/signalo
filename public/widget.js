@@ -183,14 +183,16 @@
       }
     }
 
-    function setOpen(next) {
+    function setOpen(next, byVisitor) {
       open = next;
       frame.style.display = open ? "block" : "none";
       paintLauncher();
       if (bubble && open) { bubble.remove(); dismissedGreeting = true; }
-      try {
-        window.localStorage.setItem("signalo:" + key + ":opened", "1");
-      } catch (e) { /* private mode */ }
+      if (open && byVisitor !== false) {
+        try {
+          window.localStorage.setItem("signalo:" + key + ":opened", "1");
+        } catch (e) { /* private mode */ }
+      }
     }
 
     launcher.addEventListener("click", function () { setOpen(!open); });
@@ -211,7 +213,7 @@
         }, 2500);
       }
       if (config.autoOpen && !seen) {
-        setTimeout(function () { if (!open) setOpen(true); },
+        setTimeout(function () { if (!open) setOpen(true, false); },
           (parseInt(config.autoOpenDelay, 10) || 8) * 1000);
       }
     }

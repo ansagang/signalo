@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   useChannels, useCreateChannel, useUpdateChannel, useDeleteChannel,
-  useRotateKey, useConnectTelegram,
+  useRotateKey, useConnectTelegram, useVerifyWhatsApp, useVerifyEmail,
 } from "@/hooks/use-channels";
 import { usePersonas } from "@/hooks/use-personas";
 import { cn } from "@/lib/utils";
@@ -17,9 +17,74 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Panel, EmptyState, Loading, Segmented, Toggle, Hint } from "@/components/ui/page";
 import BotIcon, { BotIconPicker } from "@/components/ui/bot-icon";
 import {
-  CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon, PlusIcon,
-  RefreshCwIcon, SendIcon, Trash2Icon,
+  CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon, MailIcon,
+  MessageCircleIcon, PlusIcon, RefreshCwIcon, SendIcon, Trash2Icon,
 } from "lucide-react";
+
+const TYPE_ICON = {
+  web: GlobeIcon,
+  telegram: SendIcon,
+  whatsapp: MessageCircleIcon,
+  email: MailIcon,
+};
+
+/**
+ * A saved credential, shown as a masked hint with a deliberate "replace" step.
+ *
+ * An empty password box gave no sign a secret was already stored, so every
+ * channel looked unconfigured.
+ */
+function SecretField({ label, placeholder, saved, hint, onSave, pending, p }) {
+  const [value, setValue] = useState("");
+  const [editing, setEditing] = useState(false);
+
+  if (saved && !editing) {
+    return (
+      <Field label={label}>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-secondary-transparent2 border border-secondary-transparent rounded-button px-3 h-10 inline-flex items-center text-[12px] font-mono text-secondary truncate">
+            {hint}
+          </code>
+          <Button variant="ghost" size="sm" type="button" onClick={() => setEditing(true)}>
+            {p.fields.replaceToken}
+          </Button>
+        </div>
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={label}>
+      <div className="flex items-center gap-2">
+        <Input
+          className="flex-1"
+          autoFocus={editing}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <Button
+          type="button"
+          size="sm"
+          disabled={!value.trim() || pending}
+          onClick={() => {
+            onSave(value.trim());
+            setValue("");
+            setEditing(false);
+          }}
+        >
+          {p.fields.saveToken}
+        </Button>
+        {saved && (
+          <Button variant="ghost" size="sm" type="button"
+            onClick={() => { setValue(""); setEditing(false); }}>
+            {p.confirmDelete.cancel}
+          </Button>
+        )}
+      </div>
+    </Field>
+  );
+}
 
 const WIDGET_THEMES = {
   dark:  { panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22", panelBorder: "#2a2a32" },
@@ -172,6 +237,14 @@ export default function ChannelsManager({ language, origin }) {
           <PlusIcon className="size-4" />
           {p.types.telegram.add}
         </Button>
+        <Button variant="ghost" onClick={() => add("whatsapp")} disabled={createChannel.isPending}>
+          <PlusIcon className="size-4" />
+          {p.types.whatsapp.add}
+        </Button>
+        <Button variant="ghost" onClick={() => add("email")} disabled={createChannel.isPending}>
+          <PlusIcon className="size-4" />
+          {p.types.email.add}
+        </Button>
       </div>
     </div>
   );
@@ -182,16 +255,23 @@ function ChannelCard({ channel, personas, p, res, base }) {
   const deleteChannel = useDeleteChannel();
   const rotateKey = useRotateKey();
   const connectTelegram = useConnectTelegram();
+  const verifyWhatsApp = useVerifyWhatsApp();
+  const verifyEmail = useVerifyEmail();
 
-  const isWeb = channel.type === "web";
+  const type = channel.type;
+  const isWeb = type === "web";
   const [tab, setTab] = useState("setup");
-  const [token, setToken] = useState("");
-  const [editingToken, setEditingToken] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [config, setConfig] = useState({ ...WIDGET_DEFAULTS, ...(channel.config || {}) });
   const themeDefaults = WIDGET_THEMES[config.theme] || WIDGET_THEMES.dark;
 
-  const meta = isWeb ? p.types.web : p.types.telegram;
+  const meta = p.types[type] || p.types.web;
+  const TypeIcon = TYPE_ICON[type] || GlobeIcon;
+  // Where the provider should post inbound messages.
+  const webhookUrl =
+    type === "whatsapp" ? `${base}/api/channels/whatsapp/${channel.id}`
+    : type === "email" ? `${base}/api/channels/email/${channel.id}?secret=${channel.inbound_secret || ""}`
+    : null;
   const snippet = `<script src="${base}/widget.js" data-key="${channel.public_key}" defer></script>`;
 
   function patch(updates, successMessage) {
@@ -219,7 +299,7 @@ function ChannelCard({ channel, personas, p, res, base }) {
     <Panel>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-secondary-transparent">
         <div className="size-9 rounded-button bg-secondary-transparent2 grid place-items-center text-secondary shrink-0">
-          {isWeb ? <GlobeIcon className="size-4" /> : <SendIcon className="size-4" />}
+          <TypeIcon className="size-4" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -303,50 +383,17 @@ function ChannelCard({ channel, personas, p, res, base }) {
             </div>
             <Hint>{p.fields.personaHint}</Hint>
 
-            {!isWeb && (
+            {type === "telegram" && (
               <>
-                <Field label={p.fields.botToken}>
-                  {channel.has_token && !editingToken ? (
-                    // An empty password box gave no sign a token was saved.
-                    // Show which bot it is, and make replacing it deliberate.
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-secondary-transparent2 border border-secondary-transparent rounded-button px-3 h-10 inline-flex items-center text-[12px] font-mono text-secondary truncate">
-                        {channel.token_hint}
-                      </code>
-                      <Button variant="ghost" size="sm" type="button" onClick={() => setEditingToken(true)}>
-                        {p.fields.replaceToken}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        className="flex-1"
-                        autoFocus={editingToken}
-                        placeholder={p.fields.botTokenPlaceholder}
-                        value={token}
-                        onChange={(e) => setToken(e.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!token.trim() || updateChannel.isPending}
-                        onClick={() => {
-                          patch({ bot_token: token.trim() }, res.tokenSaved);
-                          setToken("");
-                          setEditingToken(false);
-                        }}
-                      >
-                        {p.fields.saveToken}
-                      </Button>
-                      {channel.has_token && (
-                        <Button variant="ghost" size="sm" type="button"
-                          onClick={() => { setToken(""); setEditingToken(false); }}>
-                          {p.confirmDelete.cancel}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </Field>
+                <SecretField
+                  label={p.fields.botToken}
+                  placeholder={p.fields.botTokenPlaceholder}
+                  saved={channel.has_token}
+                  hint={channel.token_hint}
+                  pending={updateChannel.isPending}
+                  p={p}
+                  onSave={(v) => patch({ bot_token: v }, res.tokenSaved)}
+                />
                 <Hint>{p.telegramHelp}</Hint>
                 <Button
                   variant="ghost"
@@ -366,6 +413,134 @@ function ChannelCard({ channel, personas, p, res, base }) {
                     <SendIcon className="size-3.5" />
                   )}
                   {p.connect}
+                </Button>
+              </>
+            )}
+
+            {type === "whatsapp" && (
+              <>
+                <SecretField
+                  label={p.fields.waToken}
+                  placeholder={p.fields.waTokenPlaceholder}
+                  saved={channel.has_token}
+                  hint={channel.token_hint}
+                  pending={updateChannel.isPending}
+                  p={p}
+                  onSave={(v) => patch({ access_token: v }, res.tokenSaved)}
+                />
+
+                <Field label={p.fields.waPhoneId}>
+                  <Input
+                    defaultValue={channel.wa_phone_id || ""}
+                    placeholder={p.fields.waPhoneIdPlaceholder}
+                    onBlur={(e) =>
+                      e.target.value !== (channel.wa_phone_id || "") &&
+                      patch({ phone_number_id: e.target.value.trim() }, res.channelUpdated)
+                    }
+                  />
+                </Field>
+
+                <SecretField
+                  label={p.fields.waAppSecret}
+                  placeholder={p.fields.waAppSecretPlaceholder}
+                  saved={channel.has_app_secret}
+                  hint="••••••••"
+                  pending={updateChannel.isPending}
+                  p={p}
+                  onSave={(v) => patch({ app_secret: v }, res.tokenSaved)}
+                />
+
+                {/* Meta has no setWebhook API — these two get pasted by hand. */}
+                <CopyBox label={p.fields.callbackUrl} value={webhookUrl} />
+                <CopyBox label={p.fields.verifyToken} value={channel.verify_token || ""} />
+                <Hint>{p.whatsappHelp}</Hint>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={verifyWhatsApp.isPending || !channel.has_token}
+                  onClick={() =>
+                    verifyWhatsApp.mutate(channel.id, {
+                      onSuccess: (r) =>
+                        r?.success === false ? showError(r.message) : showSuccess(r.message),
+                      onError: () => showError(res.channelUpdateError),
+                    })
+                  }
+                >
+                  {verifyWhatsApp.isPending ? (
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <MessageCircleIcon className="size-3.5" />
+                  )}
+                  {p.checkConnection}
+                </Button>
+              </>
+            )}
+
+            {type === "email" && (
+              <>
+                <div className="flex gap-3">
+                  <Field label={p.fields.emailAddress} className="flex-1">
+                    <Input
+                      defaultValue={channel.config?.address || ""}
+                      placeholder={p.fields.emailAddressPlaceholder}
+                      onBlur={(e) =>
+                        e.target.value !== (channel.config?.address || "") &&
+                        patch(
+                          { config: { ...(channel.config || {}), address: e.target.value.trim() } },
+                          res.channelUpdated,
+                        )
+                      }
+                    />
+                  </Field>
+                  <Field label={p.fields.emailFromName} className="flex-1">
+                    <Input
+                      defaultValue={channel.config?.from_name || ""}
+                      placeholder={p.fields.emailFromNamePlaceholder}
+                      onBlur={(e) =>
+                        e.target.value !== (channel.config?.from_name || "") &&
+                        patch(
+                          { config: { ...(channel.config || {}), from_name: e.target.value.trim() } },
+                          res.channelUpdated,
+                        )
+                      }
+                    />
+                  </Field>
+                </div>
+
+                <SecretField
+                  label={p.fields.emailApiKey}
+                  placeholder={p.fields.emailApiKeyPlaceholder}
+                  saved={channel.has_token}
+                  hint={channel.token_hint}
+                  pending={updateChannel.isPending}
+                  p={p}
+                  onSave={(v) => patch({ api_key: v }, res.tokenSaved)}
+                />
+
+                {/* The secret is in the URL so providers that send no headers
+                    can still authenticate. */}
+                <CopyBox label={p.fields.inboundUrl} value={webhookUrl} />
+                <Hint>{p.emailHelp}</Hint>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={verifyEmail.isPending}
+                  onClick={() =>
+                    verifyEmail.mutate(channel.id, {
+                      onSuccess: (r) =>
+                        r?.success === false ? showError(r.message) : showSuccess(r.message),
+                      onError: () => showError(res.channelUpdateError),
+                    })
+                  }
+                >
+                  {verifyEmail.isPending ? (
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <MailIcon className="size-3.5" />
+                  )}
+                  {p.checkConnection}
                 </Button>
               </>
             )}

@@ -391,6 +391,14 @@
           "telegram": {
             "add": "Добавить Telegram-бота",
             "desc": "Ассистент отвечает прямо в Telegram."
+          },
+          "whatsapp": {
+            "add": "WhatsApp",
+            "desc": "Отвечает клиентам на ваш номер WhatsApp Business."
+          },
+          "email": {
+            "add": "Email",
+            "desc": "Отвечает на письма, пришедшие в вашу почту поддержки."
           }
         },
         "active": "Работает",
@@ -412,7 +420,22 @@
           "botTokenPlaceholder": "123456:ABC-DEF…",
           "personaHint": "Персона определяет, как канал общается и что знает.",
           "replaceToken": "Заменить",
-          "saveToken": "Сохранить токен"
+          "saveToken": "Сохранить токен",
+          "waToken": "Постоянный access token",
+          "waTokenPlaceholder": "EAAG… из вашего приложения Meta",
+          "waPhoneId": "Phone number ID",
+          "waPhoneIdPlaceholder": "15551234567890 (не номер телефона)",
+          "waAppSecret": "App secret",
+          "waAppSecretPlaceholder": "Подписывает вебхуки Meta — очень желательно",
+          "callbackUrl": "Callback URL",
+          "verifyToken": "Verify token",
+          "emailAddress": "Адрес отправки",
+          "emailAddressPlaceholder": "hello@yourdomain.com",
+          "emailFromName": "Имя отправителя",
+          "emailFromNamePlaceholder": "Название вашего бизнеса",
+          "emailApiKey": "API-ключ Resend",
+          "emailApiKeyPlaceholder": "re_…",
+          "inboundUrl": "URL для входящих писем"
         },
         "empty": {
           "title": "Каналов пока нет",
@@ -479,7 +502,10 @@
           "iconHint": "Показывается на кнопке чата и в шапке окна. Выберите форму, затем фон."
         },
         "connected": "Принимает",
-        "notConnected": "Не подключён"
+        "notConnected": "Не подключён",
+        "checkConnection": "Проверить подключение",
+        "whatsappHelp": "В Meta → WhatsApp → Configuration вставьте callback URL и verify token, затем подпишитесь на поле \"messages\".",
+        "emailHelp": "Направьте входящий маршрут вашего провайдера (Resend, Postmark, SendGrid или Mailgun) на этот URL. Секрет уже внутри — храните как пароль."
       },
       "login": {
         "meta": {
