@@ -73,10 +73,12 @@ OPENAI_API_KEY=...                 # embeddings (required) + GPT personas
 
 Apply `supabase/migrations/*.sql` in order via the Supabase SQL editor or CLI.
 
-To load a demo catalogue, persona and channel:
+Demo data, one per booking shape:
 
 ```bash
-node scripts/seed-demo.mjs you@example.com
+node scripts/seed-demo.mjs       you@example.com   # shop: products with stock
+node scripts/seed-salon.mjs      you@example.com   # appointments with masters
+node scripts/seed-restaurant.mjs you@example.com   # tables, seating mode
 ```
 
 ## Connecting a channel
@@ -119,6 +121,27 @@ Nothing the bot sells is a loose end:
   duration + buffer, any notice period, and existing appointments. The bot may
   not invent a time; it has to ask.
 
+## Booking model
+
+The model is deliberately not salon-shaped. A **bookable** occupies a
+**resource** for a span of time, and resources have **capacity** — that one
+sentence covers every business type the app supports:
+
+| Mode | Resource is | Example |
+|---|---|---|
+| `appointment` | taken exclusively, one customer | a haircut, a consultation |
+| `seating` | taken exclusively, must fit the party | a restaurant table, a meeting room |
+| `class` | shared until its seats run out | a yoga class, a tour |
+
+`resources` carries a `kind` (`person` / `table` / `room` / `equipment`) and a
+`capacity`. A stylist has capacity 1; a four-top has 4; a studio has 20. The
+same `available_slots` function serves all three modes: for `seating` it picks
+the **smallest sufficient** resource so two people are not seated at the ten-top,
+and for `class` it subtracts the party sizes already booked on that resource.
+
+Because it is one relation, the assistant needs one extra question — *how many
+people?* — which it asks only when the catalogue says the service takes a range.
+
 ## Scheduling
 
 A service is not bookable "any time". Admins decide, per service:
@@ -127,11 +150,11 @@ A service is not bookable "any time". Admins decide, per service:
   exact list (`slot_mode: 'fixed'`, e.g. 11:00 / 14:00 / 17:00). Nothing in
   between is ever offered, and `book_appointment` re-checks the requested time
   against the same function before inserting.
-- **Who can do it** — `service_staff`. Assign nobody and anyone on the team can
-  take it; assign one master and only their shifts produce slots.
-- **Shifts** — `staff_hours`, per person per weekday, clipped to the shop's own
-  hours. A master with no rows falls back to shop hours rather than vanishing
-  from the calendar.
+- **What can serve it** — `service_resources`. Assign nothing and anything
+  suitable can take it; assign one resource and only its hours produce slots.
+- **Hours** — `resource_hours`, per resource per weekday, clipped to the shop's
+  own hours. A resource with no rows falls back to shop hours rather than
+  vanishing from the calendar.
 - **Notice** — `lead_time_min` keeps same-hour bookings out.
 
 ## Images

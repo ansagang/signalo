@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getProducts, createProduct, updateProduct, deleteProduct, adjustStock, getStockMovements,
   getServices, createService, updateService, deleteService,
-  getStaff, createStaff, updateStaff, deleteStaff,
+  getResources, createResource, updateResource, deleteResource,
   getBusinessHours, saveBusinessHours,
-  getServiceStaffMap, setServiceStaff, setStaffServices,
-  getStaffHours, saveStaffHours,
+  getServiceResourceMap, setServiceResources, setResourceServices,
+  getResourceHours, saveResourceHours,
 } from "@/actions/catalogue";
 
 function crud(key, fn) {
@@ -61,47 +61,47 @@ export const useCreateService = crud("services", createService);
 export const useUpdateService = crudWithId("services", updateService);
 export const useDeleteService = crud("services", deleteService);
 
-/* staff */
-export function useStaff() {
-  return useQuery({ queryKey: ["staff"], queryFn: getStaff, staleTime: 5 * 60_000 });
+/* resources */
+export function useResources() {
+  return useQuery({ queryKey: ["resources"], queryFn: getResources, staleTime: 5 * 60_000 });
 }
-export const useCreateStaff = crud("staff", createStaff);
-export const useUpdateStaff = crudWithId("staff", updateStaff);
-export const useDeleteStaff = crud("staff", deleteStaff);
+export const useCreateResource = crud("resource", createResource);
+export const useUpdateResource = crudWithId("resource", updateResource);
+export const useDeleteResource = crud("resource", deleteResource);
 
-/* service ↔ staff */
-export function useServiceStaffMap() {
-  return useQuery({ queryKey: ["service-staff"], queryFn: getServiceStaffMap, staleTime: 5 * 60_000 });
+/* service ↔ resource */
+export function useServiceResourceMap() {
+  return useQuery({ queryKey: ["service-resource"], queryFn: getServiceResourceMap, staleTime: 5 * 60_000 });
 }
-export function useSetServiceStaff() {
+export function useSetServiceResources() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ serviceId, staffIds }) => setServiceStaff(serviceId, staffIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-staff"] }),
+    mutationFn: ({ serviceId, resourceIds }) => setServiceResources(serviceId, resourceIds),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-resource"] }),
   });
 }
 
-export function useSetStaffServices() {
+export function useSetResourceServices() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ staffId, serviceIds }) => setStaffServices(staffId, serviceIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-staff"] }),
+    mutationFn: ({ resourceId, serviceIds }) => setResourceServices(resourceId, serviceIds),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-resource"] }),
   });
 }
 
-/* staff shifts */
-export function useStaffHours(staffId) {
+/* resource hours */
+export function useResourceHours(resourceId) {
   return useQuery({
-    queryKey: ["staff-hours", staffId],
-    queryFn: () => getStaffHours(staffId),
-    enabled: Boolean(staffId),
+    queryKey: ["resource-hours", resourceId],
+    queryFn: () => getResourceHours(resourceId),
+    enabled: Boolean(resourceId),
   });
 }
-export function useSaveStaffHours() {
+export function useSaveResourceHours() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ staffId, rows }) => saveStaffHours(staffId, rows),
-    onSuccess: (_r, v) => qc.invalidateQueries({ queryKey: ["staff-hours", v.staffId] }),
+    mutationFn: ({ resourceId, rows }) => saveResourceHours(resourceId, rows),
+    onSuccess: (_r, v) => qc.invalidateQueries({ queryKey: ["resource-hours", v.resourceId] }),
   });
 }
 

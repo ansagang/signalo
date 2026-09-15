@@ -11,10 +11,10 @@ export async function updateAppointment(id, updates) {
   return action((db, user) => bookings.updateAppointment(db, user.id, id, updates));
 }
 
-export async function getAvailability({ serviceId, date, staffId, timezone } = {}) {
+export async function getAvailability({ serviceId, date, resourceId, timezone, party } = {}) {
   if (!serviceId || !date) return [];
   return query(
-    (db, user) => bookings.availableSlots(db, user.id, { serviceId, date, staffId, timezone }),
+    (db, user) => bookings.availableSlots(db, user.id, { serviceId, date, resourceId, timezone, party }),
     [],
   );
 }

@@ -48,34 +48,34 @@ export async function deleteService(id) {
   return action((db, user) => catalogue.deleteService(db, user.id, id));
 }
 
-export async function getServiceStaffMap() {
-  return query((db, user) => catalogue.getServiceStaffMap(db, user.id), {});
+export async function getServiceResourceMap() {
+  return query((db, user) => catalogue.getServiceResourceMap(db, user.id), {});
 }
 
-export async function setServiceStaff(serviceId, staffIds) {
-  return action((db, user) => catalogue.setServiceStaff(db, user.id, serviceId, staffIds));
+export async function setServiceResources(serviceId, resourceIds) {
+  return action((db, user) => catalogue.setServiceResources(db, user.id, serviceId, resourceIds));
 }
 
-export async function setStaffServices(staffId, serviceIds) {
-  return action((db, user) => catalogue.setStaffServices(db, user.id, staffId, serviceIds));
+export async function setResourceServices(resourceId, serviceIds) {
+  return action((db, user) => catalogue.setResourceServices(db, user.id, resourceId, serviceIds));
 }
 
-/* ──────────────────────────── staff & hours ──────────────────────────── */
+/* ─────────────────────── resources & their hours ─────────────────────── */
 
-export async function getStaff() {
-  return query((db, user) => catalogue.listStaff(db, user.id), []);
+export async function getResources() {
+  return query((db, user) => catalogue.listResources(db, user.id), []);
 }
 
-export async function createStaff(member) {
-  return action((db, user) => catalogue.createStaff(db, user.id, member));
+export async function createResource(member) {
+  return action((db, user) => catalogue.createResource(db, user.id, member));
 }
 
-export async function updateStaff(id, updates) {
-  return action((db, user) => catalogue.updateStaff(db, user.id, id, updates));
+export async function updateResource(id, updates) {
+  return action((db, user) => catalogue.updateResource(db, user.id, id, updates));
 }
 
-export async function deleteStaff(id) {
-  return action((db, user) => catalogue.deleteStaff(db, user.id, id));
+export async function deleteResource(id) {
+  return action((db, user) => catalogue.deleteResource(db, user.id, id));
 }
 
 export async function getBusinessHours() {
@@ -86,13 +86,13 @@ export async function saveBusinessHours(rows) {
   return action((db, user) => catalogue.saveBusinessHours(db, user.id, rows));
 }
 
-export async function getStaffHours(staffId) {
-  if (!staffId) return [];
-  return query((db, user) => catalogue.listStaffHours(db, user.id, staffId), []);
+export async function getResourceHours(resourceId) {
+  if (!resourceId) return [];
+  return query((db, user) => catalogue.listResourceHours(db, user.id, resourceId), []);
 }
 
-export async function saveStaffHours(staffId, rows) {
-  return action((db, user) => catalogue.saveStaffHours(db, user.id, staffId, rows));
+export async function saveResourceHours(resourceId, rows) {
+  return action((db, user) => catalogue.saveResourceHours(db, user.id, resourceId, rows));
 }
 
 /* ──────────────────────────────── images ─────────────────────────────── */

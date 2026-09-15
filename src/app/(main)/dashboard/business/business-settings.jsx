@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   useBusinessHours, useSaveBusinessHours,
-  useStaff, useCreateStaff, useUpdateStaff, useDeleteStaff,
-  useStaffHours, useSaveStaffHours,
-  useServices, useServiceStaffMap, useSetStaffServices,
+  useResources, useCreateResource, useUpdateResource, useDeleteResource,
+  useResourceHours, useSaveResourceHours,
+  useServices, useServiceResourceMap, useSetResourceServices,
 } from "@/hooks/use-catalogue";
 import { cn } from "@/lib/utils";
 import { showError, showSuccess } from "@/lib/toast";
@@ -169,30 +169,36 @@ function ShopHours({ p, res, dayNames }) {
 }
 
 function Team({ p, res, dayNames }) {
-  const { data: staff, isLoading } = useStaff();
+  const { data: allResources, isLoading } = useResources();
   const { data: services } = useServices();
-  const { data: staffMap } = useServiceStaffMap();
-  const create = useCreateStaff();
+  const { data: resourceMap } = useServiceResourceMap();
+  const create = useCreateResource();
+
+  // Tables, rooms and equipment are managed on Places — this section is people.
+  const resources = useMemo(
+    () => (allResources || []).filter((r) => (r.kind || "person") === "person"),
+    [allResources],
+  );
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [openId, setOpenId] = useState(null);
 
   // Invert service → masters into master → services, for the summary line.
-  const servicesByStaff = useMemo(() => {
+  const servicesByResource = useMemo(() => {
     const out = {};
-    for (const [serviceId, ids] of Object.entries(staffMap || {})) {
+    for (const [serviceId, ids] of Object.entries(resourceMap || {})) {
       const service = (services || []).find((s) => s.id === serviceId);
       if (!service) continue;
       for (const id of ids) (out[id] ||= []).push(service.name);
     }
     return out;
-  }, [staffMap, services]);
+  }, [resourceMap, services]);
 
   function add(e) {
     e.preventDefault();
     if (!name.trim()) return showError(res.nameRequired);
     create.mutate(
-      { name: name.trim(), role_title: role.trim() || null, icon: "💫" },
+      { name: name.trim(), role_title: role.trim() || null, icon: "💫", kind: "person", capacity: 1 },
       {
         onSuccess: (r) => {
           if (r?.success === false) return showError(r.message);
@@ -209,17 +215,17 @@ function Team({ p, res, dayNames }) {
     <Section title={p.team.title} description={p.team.subtitle} icon={UsersIcon}>
       {isLoading ? (
         <Loading />
-      ) : !staff?.length ? (
+      ) : !resources?.length ? (
         <EmptyState icon={UsersIcon} title={p.team.empty} description={p.team.emptyHint} />
       ) : (
         <div className="space-y-2">
-          {staff.map((member) => (
-            <StaffRow
+          {resources.map((member) => (
+            <ResourceRow
               key={member.id}
               member={member}
               allServices={services || []}
-              assignedIds={(services || []).filter((sv) => (staffMap?.[sv.id] || []).includes(member.id)).map((sv) => sv.id)}
-              services={servicesByStaff[member.id] || []}
+              assignedIds={(services || []).filter((sv) => (resourceMap?.[sv.id] || []).includes(member.id)).map((sv) => sv.id)}
+              services={servicesByResource[member.id] || []}
               p={p}
               res={res}
               dayNames={dayNames}
@@ -230,9 +236,9 @@ function Team({ p, res, dayNames }) {
         </div>
       )}
 
-      <form onSubmit={add} className="flex gap-2 mt-3">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={p.team.namePlaceholder} className="flex-1" />
-        <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder={p.team.rolePlaceholder} className="flex-1" />
+      <form onSubmit={add} className="flex gap-2 mt-3 flex-wrap">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={p.team.namePlaceholder} className="flex-1 min-w-[160px]" />
+        <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder={p.team.rolePlaceholder} className="flex-1 min-w-[160px]" />
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? <LoaderIcon className="size-4 animate-spin" /> : <PlusIcon className="size-4" />}
           {p.team.add}
@@ -242,12 +248,12 @@ function Team({ p, res, dayNames }) {
   );
 }
 
-function StaffRow({ member, services, allServices, assignedIds, p, res, dayNames, open, onToggle }) {
-  const update = useUpdateStaff();
-  const remove = useDeleteStaff();
-  const { data: hours, isLoading } = useStaffHours(open ? member.id : null);
-  const saveHours = useSaveStaffHours();
-  const setStaffServices = useSetStaffServices();
+function ResourceRow({ member, services, allServices, assignedIds, p, res, dayNames, open, onToggle }) {
+  const update = useUpdateResource();
+  const remove = useDeleteResource();
+  const { data: hours, isLoading } = useResourceHours(open ? member.id : null);
+  const saveHours = useSaveResourceHours();
+  const setResourceServices = useSetResourceServices();
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
@@ -327,11 +333,11 @@ function StaffRow({ member, services, allServices, assignedIds, p, res, dayNames
                     <button
                       key={sv.id}
                       type="button"
-                      disabled={setStaffServices.isPending}
+                      disabled={setResourceServices.isPending}
                       onClick={() =>
-                        setStaffServices.mutate(
+                        setResourceServices.mutate(
                           {
-                            staffId: member.id,
+                            resourceId: member.id,
                             serviceIds: on
                               ? assignedIds.filter((x) => x !== sv.id)
                               : [...assignedIds, sv.id],
@@ -368,7 +374,7 @@ function StaffRow({ member, services, allServices, assignedIds, p, res, dayNames
                   onClick={() =>
                     saveHours.mutate(
                       {
-                        staffId: member.id,
+                        resourceId: member.id,
                         rows: rows.map((r) => ({ weekday: r.weekday, starts_at: r.from, ends_at: r.to, off: r.off })),
                       },
                       {

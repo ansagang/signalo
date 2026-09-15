@@ -1,7 +1,7 @@
 /**
  * Catalogue data access.
  *
- * Every query against products, services, staff and opening hours lives here.
+ * Every query against products, services, resource and opening hours lives here.
  * Functions take a Supabase client as their first argument so the same code
  * serves a server action (acting as the signed-in user) and any server-side
  * caller holding a service-role client — without duplicating the query.
@@ -203,19 +203,19 @@ export async function deleteService(supabase, userId, id) {
 
 /* ──────────────────── which masters do which service ─────────────────── */
 
-export async function getServiceStaffMap(supabase, userId) {
+export async function getServiceResourceMap(supabase, userId) {
   const { data, error } = await supabase
-    .from("service_staff")
-    .select("service_id, staff_id, services!inner(user_id)")
+    .from("service_resources")
+    .select("service_id, resource_id, services!inner(user_id)")
     .eq("services.user_id", userId);
   if (error) throw error;
 
   const map = {};
-  for (const row of data || []) (map[row.service_id] ||= []).push(row.staff_id);
+  for (const row of data || []) (map[row.service_id] ||= []).push(row.resource_id);
   return map;
 }
 
-export async function setServiceStaff(supabase, userId, serviceId, staffIds) {
+export async function setServiceResources(supabase, userId, serviceId, resourceIds) {
   const { data: owned } = await supabase
     .from("services")
     .select("id")
@@ -225,60 +225,60 @@ export async function setServiceStaff(supabase, userId, serviceId, staffIds) {
   if (!owned) throw new Error("Service not found");
 
   const { error: delError } = await supabase
-    .from("service_staff")
+    .from("service_resources")
     .delete()
     .eq("service_id", serviceId);
   if (delError) throw delError;
 
-  if (staffIds?.length) {
+  if (resourceIds?.length) {
     const { error } = await supabase
-      .from("service_staff")
-      .insert(staffIds.map((staff_id) => ({ service_id: serviceId, staff_id })));
+      .from("service_resources")
+      .insert(resourceIds.map((resource_id) => ({ service_id: serviceId, resource_id })));
     if (error) throw error;
   }
 }
 
 /**
- * The same link, written from the master's side.
+ * The same link, written from the resource's side.
  *
- * Assignment is one relation but two mental models — "who can do this
- * service" when you are editing a service, "what can this person do" when you
- * are editing the team. Both need to work.
+ * Assignment is one relation but two mental models — "what can serve this"
+ * when editing a service, "what can this resource be used for" when editing
+ * the resource. Both need to work.
  */
-export async function setStaffServices(supabase, userId, staffId, serviceIds) {
+export async function setResourceServices(supabase, userId, resourceId, serviceIds) {
   const { data: owned } = await supabase
-    .from("staff")
+    .from("resources")
     .select("id")
-    .eq("id", staffId)
+    .eq("id", resourceId)
     .eq("user_id", userId)
     .maybeSingle();
-  if (!owned) throw new Error("Not your team member");
+  if (!owned) throw new Error("Resource not found");
 
   // Only touch rows for services this account owns.
   const { data: mine } = await supabase.from("services").select("id").eq("user_id", userId);
   const ownedIds = new Set((mine || []).map((r) => r.id));
 
   const { error: delError } = await supabase
-    .from("service_staff")
+    .from("service_resources")
     .delete()
-    .eq("staff_id", staffId)
+    .eq("resource_id", resourceId)
     .in("service_id", [...ownedIds]);
   if (delError) throw delError;
 
   const wanted = (serviceIds || []).filter((id) => ownedIds.has(id));
   if (wanted.length) {
     const { error } = await supabase
-      .from("service_staff")
-      .insert(wanted.map((service_id) => ({ service_id, staff_id: staffId })));
+      .from("service_resources")
+      .insert(wanted.map((service_id) => ({ service_id, resource_id: resourceId })));
     if (error) throw error;
   }
 }
 
-/* ───────────────────────────── staff & hours ─────────────────────────── */
+/* ──────────────────────── resources & their hours ────────────────────── */
 
-export async function listStaff(supabase, userId) {
+export async function listResources(supabase, userId) {
   const { data, error } = await supabase
-    .from("staff")
+    .from("resources")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
@@ -286,18 +286,23 @@ export async function listStaff(supabase, userId) {
   return data;
 }
 
-export async function createStaff(supabase, userId, member) {
-  const { error } = await supabase.from("staff").insert({ ...member, user_id: userId });
+export async function createResource(supabase, userId, member) {
+  const { data, error } = await supabase
+    .from("resources")
+    .insert({ ...member, user_id: userId })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateResource(supabase, userId, id, updates) {
+  const { error } = await supabase.from("resources").update(updates).eq("id", id).eq("user_id", userId);
   if (error) throw error;
 }
 
-export async function updateStaff(supabase, userId, id, updates) {
-  const { error } = await supabase.from("staff").update(updates).eq("id", id).eq("user_id", userId);
-  if (error) throw error;
-}
-
-export async function deleteStaff(supabase, userId, id) {
-  const { error } = await supabase.from("staff").delete().eq("id", id).eq("user_id", userId);
+export async function deleteResource(supabase, userId, id) {
+  const { error } = await supabase.from("resources").delete().eq("id", id).eq("user_id", userId);
   if (error) throw error;
 }
 
@@ -334,39 +339,39 @@ export async function saveBusinessHours(supabase, userId, rows) {
   if (error) throw error;
 }
 
-export async function listStaffHours(supabase, userId, staffId) {
+export async function listResourceHours(supabase, userId, resourceId) {
   const { data, error } = await supabase
-    .from("staff_hours")
+    .from("resource_hours")
     .select("*")
     .eq("user_id", userId)
-    .eq("staff_id", staffId)
+    .eq("resource_id", resourceId)
     .order("weekday", { ascending: true });
   if (error) throw error;
 
   return fillWeek(data, (wd) => ({
-    weekday: wd, staff_id: staffId, starts_at: "10:00", ends_at: "19:00", off: wd === 0,
+    weekday: wd, resource_id: resourceId, starts_at: "10:00", ends_at: "19:00", off: wd === 0,
   }));
 }
 
-export async function saveStaffHours(supabase, userId, staffId, rows) {
+export async function saveResourceHours(supabase, userId, resourceId, rows) {
   const { data: owned } = await supabase
-    .from("staff")
+    .from("resources")
     .select("id")
-    .eq("id", staffId)
+    .eq("id", resourceId)
     .eq("user_id", userId)
     .maybeSingle();
-  if (!owned) throw new Error("Not your team member");
+  if (!owned) throw new Error("Resource not found");
 
   const payload = rows.map((r) => ({
     user_id: userId,
-    staff_id: staffId,
+    resource_id: resourceId,
     weekday: r.weekday,
     starts_at: r.starts_at,
     ends_at: r.ends_at,
     off: Boolean(r.off),
   }));
   const { error } = await supabase
-    .from("staff_hours")
-    .upsert(payload, { onConflict: "staff_id,weekday" });
+    .from("resource_hours")
+    .upsert(payload, { onConflict: "resource_id,weekday" });
   if (error) throw error;
 }

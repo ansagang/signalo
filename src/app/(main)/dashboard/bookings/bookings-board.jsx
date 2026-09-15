@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAppointments, useUpdateAppointment, useCreateAppointment, useAvailability } from "@/hooks/use-bookings";
-import { useServices, useStaff, useBusinessHours } from "@/hooks/use-catalogue";
+import { useServices, useResources, useBusinessHours } from "@/hooks/use-catalogue";
 import { cn } from "@/lib/utils";
 import { money, timeOnly } from "@/lib/display";
 import { showError, showSuccess } from "@/lib/toast";
@@ -12,11 +12,21 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loading, EmptyState, Hint } from "@/components/ui/page";
+import { Loading, EmptyState, Hint, Segmented } from "@/components/ui/page";
 import {
-  CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, LoaderIcon,
-  PhoneIcon, PlusIcon, UserRoundIcon,
+  ArmchairIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon,
+  DoorOpenIcon, LayoutGridIcon, LoaderIcon, PhoneIcon, PlusIcon,
+  UserRoundIcon, WrenchIcon,
 } from "lucide-react";
+
+// Resources are people, tables, rooms or equipment — the filter needs a face
+// for each so a restaurant host can pick "Tables" without reading labels.
+const KIND_ICON = {
+  person: UserRoundIcon,
+  table: ArmchairIcon,
+  room: DoorOpenIcon,
+  equipment: WrenchIcon,
+};
 
 const TZ = "Asia/Almaty";
 const ROW_PX = 56;          // one hour
@@ -179,17 +189,19 @@ export default function BookingsBoard({ language }) {
   const [day, setDay] = useState(() => localDay());
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [kindFilter, setKindFilter] = useState("all");
+  const [showEmpty, setShowEmpty] = useState(false);
 
   const range = useMemo(() => dayBounds(day), [day]);
   const { data: appointments, isLoading, isFetching } = useAppointments(range);
   const { data: services } = useServices();
-  const { data: staff, isLoading: loadingStaff } = useStaff();
+  const { data: resources, isLoading: loadingResources } = useResources();
   const { data: hours, isLoading: loadingHours } = useBusinessHours();
 
-  // Columns come from staff and the vertical range from opening hours. Drawing
+  // Columns come from resources and the vertical range from opening hours. Drawing
   // before either has landed meant the grid appeared, then re-shaped under the
   // cursor — which is what read as lag.
-  const notReady = isLoading || loadingStaff || loadingHours;
+  const notReady = isLoading || loadingResources || loadingHours;
 
   const today = localDay();
   const week = useMemo(() => weekOf(day), [day]);
@@ -204,15 +216,45 @@ export default function BookingsBoard({ language }) {
   const live = (appointments || []).filter((a) => a.status !== "cancelled");
   const revenue = live.reduce((sum, a) => sum + Number(a.price || 0), 0);
 
-  // Columns: every active master, plus a catch-all if anything is unassigned.
+  const active = useMemo(() => (resources || []).filter((r) => r.active), [resources]);
+
+  // Only offer the kind filter when the account actually mixes kinds — a salon
+  // with nothing but stylists should never see a "Tables" tab.
+  const kinds = useMemo(() => {
+    const present = [...new Set(active.map((r) => r.kind || "person"))];
+    return present.length > 1 ? present : [];
+  }, [active]);
+
+  const booked = useMemo(
+    () => new Set((appointments || []).map((a) => a.resource_id).filter(Boolean)),
+    [appointments],
+  );
+
+  // Columns: the active resources, plus a catch-all if anything is unassigned.
+  // A dozen mostly-empty columns is unreadable, so past six we show only the
+  // ones this day actually uses; everything stays one click away.
   const columns = useMemo(() => {
-    const active = (staff || []).filter((s) => s.active);
-    const cols = active.map((s) => ({ id: s.id, name: s.name, icon: s.icon }));
-    if ((appointments || []).some((a) => !a.staff_id)) {
+    let pool = active;
+    if (kindFilter !== "all") pool = pool.filter((r) => (r.kind || "person") === kindFilter);
+
+    if (pool.length > 6 && !showEmpty) {
+      const used = pool.filter((r) => booked.has(r.id));
+      if (used.length) pool = used;
+    }
+
+    const cols = pool.map((r) => ({ id: r.id, name: r.name, icon: r.icon, kind: r.kind }));
+    if ((appointments || []).some((a) => !a.resource_id)) {
       cols.push({ id: UNASSIGNED, name: p.unassigned, icon: "—" });
     }
     return cols.length ? cols : [{ id: UNASSIGNED, name: p.allBookings, icon: "" }];
-  }, [staff, appointments, p]);
+  }, [active, appointments, kindFilter, showEmpty, booked, p]);
+
+  // How many the day-filter is holding back, so the count stays honest.
+  const hiddenCount = useMemo(() => {
+    const pool =
+      kindFilter === "all" ? active : active.filter((r) => (r.kind || "person") === kindFilter);
+    return Math.max(0, pool.length - columns.filter((c) => c.id !== UNASSIGNED).length);
+  }, [active, columns, kindFilter]);
 
   // Vertical span: the shop's own hours for this weekday, widened to fit
   // anything booked outside them.
@@ -309,29 +351,68 @@ export default function BookingsBoard({ language }) {
         </Button>
       </div>
 
+      {/* ── which resources to show ── */}
+      {(kinds.length > 0 || hiddenCount > 0) && (
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          {kinds.length > 0 && (
+            <Segmented
+              value={kindFilter}
+              onChange={setKindFilter}
+              options={[
+                { value: "all", label: p.filters.allResources, icon: LayoutGridIcon, count: active.length },
+                ...kinds.map((k) => ({
+                  value: k,
+                  label: p.kinds[k] || k,
+                  icon: KIND_ICON[k],
+                  count: active.filter((r) => (r.kind || "person") === k).length,
+                })),
+              ]}
+            />
+          )}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowEmpty((v) => !v)}
+              className="text-[12px] text-secondary hover:text-fg transition-colors cursor-pointer px-2 py-1"
+            >
+              {showEmpty
+                ? p.filters.hideEmpty
+                : p.filters.showEmpty.replace("{n}", hiddenCount)}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── timetable ── */}
       {notReady ? (
         <TimetableSkeleton rows={10} columns={2} />
       ) : (
         <div
           className={cn(
-            "border border-border rounded-module bg-card overflow-hidden transition-opacity",
+            "border border-border rounded-module bg-card overflow-x-auto transition-opacity",
             // Refetching keeps the previous day visible, just dimmed.
             isFetching && "opacity-60",
           )}
         >
-          <div className="flex border-b border-secondary-transparent sticky top-0 bg-card z-10">
+          <div className="flex border-b border-secondary-transparent bg-card min-w-max">
             <div className="w-[56px] shrink-0 border-r border-secondary-transparent" />
             {columns.map((c) => (
-              <div key={c.id} className="flex-1 min-w-0 px-3 py-2.5 border-r border-secondary-transparent last:border-r-0">
-                <p className="text-[12px] font-semibold text-fg truncate">
+              <div
+                key={c.id}
+                className="flex-1 min-w-[132px] px-3 py-2.5 border-r border-secondary-transparent last:border-r-0"
+                title={c.name}
+              >
+                <p className="text-[12px] font-semibold text-fg truncate leading-tight">
                   {c.icon} {c.name}
                 </p>
+                {c.kind && c.kind !== "person" && (
+                  <p className="text-[10px] text-muted truncate">{p.kinds[c.kind]}</p>
+                )}
               </div>
             ))}
           </div>
 
-          <div className="relative overflow-x-auto pt-2">
+          <div className="relative pt-2 min-w-max">
             <div className="flex" style={{ height: rows.length * ROW_PX }}>
               {/* hour gutter */}
               <div className="w-[56px] shrink-0 border-r border-secondary-transparent">
@@ -347,11 +428,11 @@ export default function BookingsBoard({ language }) {
               {columns.map((c) => {
                 const mine = (appointments || []).filter((a) =>
                   c.id === UNASSIGNED
-                    ? !a.staff_id || columns.length === 1
-                    : a.staff_id === c.id,
+                    ? !a.resource_id || columns.length === 1
+                    : a.resource_id === c.id,
                 );
                 return (
-                  <div key={c.id} className="flex-1 min-w-[140px] relative border-r border-secondary-transparent last:border-r-0">
+                  <div key={c.id} className="flex-1 min-w-[132px] relative border-r border-secondary-transparent last:border-r-0">
                     {rows.map((h) => (
                       <div key={h} className="border-b border-secondary-transparent2" style={{ height: ROW_PX }} />
                     ))}
@@ -378,11 +459,17 @@ export default function BookingsBoard({ language }) {
                             style.block,
                           )}
                         >
+                          {/* Sharing a lane leaves no room for "10:00 Nail art
+                              (per hand)" on one line, and the row position
+                              already says when it starts — so drop the time. */}
                           <p className="text-[11px] font-semibold text-fg truncate leading-tight">
-                            {timeOnly(a.starts_at, TZ)} {a.services?.name || p.deletedService}
+                            {lanes > 1
+                              ? a.services?.name || p.deletedService
+                              : `${timeOnly(a.starts_at, TZ)} ${a.services?.name || p.deletedService}`}
                           </p>
                           {height > 34 && (
                             <p className="text-[10px] text-secondary truncate mt-0.5">
+                              {lanes > 1 ? timeOnly(a.starts_at, TZ) + " · " : ""}
                               {a.customer_name || p.noName}
                             </p>
                           )}
@@ -418,7 +505,7 @@ export default function BookingsBoard({ language }) {
         <AppointmentDialog appointment={selected} p={p} res={res} onClose={() => setSelected(null)} />
       )}
       {adding && (
-        <NewBookingDialog p={p} res={res} day={day} services={services} staff={staff} onClose={() => setAdding(false)} />
+        <NewBookingDialog p={p} res={res} day={day} services={services} resources={resources} onClose={() => setAdding(false)} />
       )}
     </div>
   );
@@ -455,7 +542,7 @@ function AppointmentDialog({ appointment: a, p, res, onClose }) {
             <Row label={p.fields.time} value={`${timeOnly(a.starts_at, TZ)} – ${timeOnly(a.ends_at, TZ)}`} />
             <Row label={p.fields.customerName} value={a.customer_name || p.noName} icon={UserRoundIcon} />
             {a.customer_contact && <Row label={p.fields.customerContact} value={a.customer_contact} icon={PhoneIcon} />}
-            {a.staff?.name && <Row label={p.fields.staff} value={`${a.staff.icon || ""} ${a.staff.name}`} />}
+            {a.resources?.name && <Row label={p.fields.resources} value={`${a.resources.icon || ""} ${a.resources.name}`} />}
             <Row label={p.fields.price} value={money(a.price, a.currency)} />
             {a.note && <Row label={p.fields.note} value={a.note} />}
           </dl>
@@ -502,11 +589,11 @@ function Row({ label, value, icon: Icon }) {
 
 /* ─────────────────────────── new booking ─────────────────────────────── */
 
-function NewBookingDialog({ p, res, day, services, staff, onClose }) {
+function NewBookingDialog({ p, res, day, services, resources, onClose }) {
   const [form, setForm] = useState({
     serviceId: services?.[0]?.id || "",
     date: day,
-    staffId: "",
+    resourceId: "",
     slot: "",
     customerName: "",
     customerContact: "",
@@ -516,12 +603,12 @@ function NewBookingDialog({ p, res, day, services, staff, onClose }) {
   const { data: slots, isLoading: loadingSlots } = useAvailability({
     serviceId: form.serviceId,
     date: form.date,
-    staffId: form.staffId || undefined,
+    resourceId: form.resourceId || undefined,
   });
 
   // Changing what is being booked invalidates the chosen time.
   const set = (k, v) =>
-    setForm((f) => ({ ...f, [k]: v, ...(["serviceId", "date", "staffId"].includes(k) ? { slot: "" } : {}) }));
+    setForm((f) => ({ ...f, [k]: v, ...(["serviceId", "date", "resourceId"].includes(k) ? { slot: "" } : {}) }));
 
   function save(e) {
     e.preventDefault();
@@ -533,7 +620,7 @@ function NewBookingDialog({ p, res, day, services, staff, onClose }) {
       {
         serviceId: form.serviceId,
         startsAt: form.slot,
-        staffId: form.staffId || null,
+        resourceId: form.resourceId || null,
         customerName: form.customerName.trim(),
         customerContact: form.customerContact.trim(),
       },
@@ -580,10 +667,10 @@ function NewBookingDialog({ p, res, day, services, staff, onClose }) {
             <Field label={p.fields.date} className="flex-1">
               <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
             </Field>
-            <Field label={p.fields.staff} className="flex-1">
-              <NativeSelect value={form.staffId} onChange={(e) => set("staffId", e.target.value)}>
-                <NativeSelectOption value="">{p.fields.anyStaff}</NativeSelectOption>
-                {staff?.filter((s) => s.active).map((s) => (
+            <Field label={p.fields.resources} className="flex-1">
+              <NativeSelect value={form.resourceId} onChange={(e) => set("resourceId", e.target.value)}>
+                <NativeSelectOption value="">{p.fields.anyResource}</NativeSelectOption>
+                {resources?.filter((r) => r.active).map((s) => (
                   <NativeSelectOption key={s.id} value={s.id}>{s.name}</NativeSelectOption>
                 ))}
               </NativeSelect>
@@ -611,7 +698,7 @@ function NewBookingDialog({ p, res, day, services, staff, onClose }) {
                         ? "bg-fg text-primary"
                         : "bg-secondary-transparent2 text-secondary hover:text-fg",
                     )}
-                    title={s.staff_name || ""}
+                    title={s.resource_name || ""}
                   >
                     {timeOnly(s.slot_start, TZ)}
                   </button>

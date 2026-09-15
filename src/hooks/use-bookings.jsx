@@ -19,10 +19,10 @@ export function useAppointments(range) {
   });
 }
 
-export function useAvailability({ serviceId, date, staffId }) {
+export function useAvailability({ serviceId, date, resourceId }) {
   return useQuery({
-    queryKey: ["availability", serviceId, date, staffId],
-    queryFn: () => getAvailability({ serviceId, date, staffId }),
+    queryKey: ["availability", serviceId, date, resourceId],
+    queryFn: () => getAvailability({ serviceId, date, resourceId }),
     enabled: Boolean(serviceId && date),
     placeholderData: keepPreviousData,
     staleTime: 15_000,

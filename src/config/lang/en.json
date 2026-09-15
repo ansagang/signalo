@@ -581,7 +581,7 @@
           "imageHint": "shown to customers in chat",
           "leadTime": "Notice (min)"
         },
-        "anyMaster": "Anyone can do it",
+        "anyMaster": "Anything available",
         "slots": {
           "title": "When it can start",
           "help": "Customers are offered these start times and nothing in between. Pick a regular rhythm, or list exact times.",
@@ -599,6 +599,18 @@
           "help": "Only the masters you pick here will be offered for this service. Pick nobody and anyone on the team can take it.",
           "noStaff": "Add people under Business → Your team first.",
           "noneSelected": "Nobody selected — anyone on the team can take this."
+        },
+        "booking": {
+          "maxParty": "Maximum people",
+          "upTo": "up to {n}",
+          "soloHint": "One customer at a time — a haircut, a consultation, a repair.",
+          "groupHint": "A group books the same slot until the seats run out — a lesson, a tour, a table."
+        },
+        "resourcesSection": {
+          "title": "What can serve it",
+          "help": "Only what you tick here is offered for this service — the people, tables or rooms it can use. Tick nothing and anything suitable can take it.",
+          "none": "Add people, tables or rooms under Business first.",
+          "noneSelected": "Nothing selected — anything suitable can take this."
         }
       },
       "bookings": {
@@ -634,8 +646,6 @@
           "service": "Service",
           "servicePlaceholder": "Choose a service",
           "date": "Date",
-          "staff": "With",
-          "anyStaff": "Anyone free",
           "time": "Time",
           "loadingSlots": "Checking free times…",
           "noSlots": "Nothing free that day — try another date.",
@@ -644,10 +654,24 @@
           "book": "Book it",
           "cancel": "Cancel",
           "note": "Note",
-          "status": "Status"
+          "status": "Status",
+          "party": "People",
+          "anyResource": "Anyone free",
+          "resource": "With"
         },
         "unassigned": "Unassigned",
-        "allBookings": "All bookings"
+        "allBookings": "All bookings",
+        "filters": {
+          "allResources": "All",
+          "showEmpty": "Show {n} with nothing booked",
+          "hideEmpty": "Hide empty"
+        },
+        "kinds": {
+          "person": "People",
+          "table": "Tables",
+          "room": "Rooms",
+          "equipment": "Equipment"
+        }
       },
       "business": {
         "meta": {
@@ -667,7 +691,7 @@
         },
         "team": {
           "title": "Your team",
-          "subtitle": "Add the people customers can book with. Leave it empty and bookings are not tied to anyone.",
+          "subtitle": "The people customers book by name. Tables and rooms live in Catalogue → Places.",
           "add": "Add",
           "namePlaceholder": "Name",
           "rolePlaceholder": "Role (optional)",
@@ -675,20 +699,20 @@
           "activate": "Activate",
           "deactivate": "Pause",
           "remove": "Remove",
-          "empty": "No one added yet.",
+          "empty": "No one here yet",
           "shifts": "Shifts",
           "saveShifts": "Save shifts",
-          "shiftsHelp": "When this person works. Appointments are only offered inside their shift and inside the shop's hours.",
-          "emptyHint": "Add the people customers can book with. Without anyone, bookings are not tied to a person.",
+          "shiftsHelp": "When this person works. Slots are offered only inside their shift and your opening hours.",
+          "emptyHint": "Add the people who take bookings. Without them the assistant has no one to book with.",
           "noServices": "Not assigned to any service yet",
           "canDo": "Services this person can do",
-          "canDoHelp": "The assistant only offers this master for the services ticked here.",
+          "canDoHelp": "The assistant offers this person only for the services you tick.",
           "noServicesYet": "Add services in Catalogue first.",
           "shiftsTitle": "Working hours"
         },
         "explain": {
           "title": "These settings decide when the assistant can book",
-          "body": "A time is offered only when the shop is open, the master is on shift, and that master is assigned to the service. Assignments live in Catalogue → Services."
+          "body": "A time is offered only when you are open, the resource is available, it is assigned to the service, and it is big enough for the party. Assignments live in Catalogue → Services."
         }
       }
     },
@@ -766,7 +790,12 @@
       "staffCreateError": "Could not add",
       "staffUpdateError": "Could not update",
       "staffDeleted": "Removed",
-      "staffDeleteError": "Could not remove"
+      "staffDeleteError": "Could not remove",
+      "resourceCreated": "Added",
+      "resourceCreateError": "Could not add",
+      "resourceUpdateError": "Could not update",
+      "resourceDeleted": "Removed",
+      "resourceDeleteError": "Could not remove"
     },
     "global": {
       "currencies": {

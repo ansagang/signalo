@@ -142,9 +142,16 @@ export const toolSpecs = [
       properties: {
         service_id: { type: "string", description: "The service_id from the catalogue." },
         date: { type: "string", description: "The day to check, as YYYY-MM-DD." },
-        staff_name: {
+        party_size: {
+          type: "integer",
+          minimum: 1,
+          description:
+            "How many people. Required for anything booked for a group — a table, a class, a tour. Leave out for a one-person appointment.",
+        },
+        resource_name: {
           type: "string",
-          description: "Only if the customer asked for a specific master by name.",
+          description:
+            "Only if the customer asked for a specific person, table or room by name.",
         },
       },
       required: ["service_id", "date"],
@@ -155,27 +162,31 @@ export const toolSpecs = [
         return { ok: false, error: "date must be YYYY-MM-DD." };
       }
 
-      let staffId = null;
-      if (input.staff_name) {
-        const { data: staff } = await ctx.supabase
-          .from("staff")
+      let resourceId = null;
+      if (input.resource_name) {
+        const { data: resource } = await ctx.supabase
+          .from("resources")
           .select("id, name")
           .eq("user_id", ctx.userId)
           .eq("active", true)
-          .ilike("name", `%${input.staff_name}%`)
+          .ilike("name", `%${input.resource_name}%`)
           .maybeSingle();
-        if (!staff) {
-          return { ok: false, error: `No master called "${input.staff_name}". Offer the next free time with anyone instead.` };
+        if (!resource) {
+          return {
+            ok: false,
+            error: `Nothing here is called "${input.resource_name}". Offer the next free time with whatever is available instead.`,
+          };
         }
-        staffId = staff.id;
+        resourceId = resource.id;
       }
 
       const { data, error } = await ctx.supabase.rpc("available_slots", {
         p_user_id: ctx.userId,
         p_service_id: input.service_id,
         p_day: input.date,
-        p_staff_id: staffId,
+        p_resource_id: resourceId,
         p_timezone: ctx.timezone || DEFAULT_TZ,
+        p_party: Math.max(1, Number(input.party_size) || 1),
       });
 
       if (error) return { ok: false, error: error.message };
@@ -190,12 +201,12 @@ export const toolSpecs = [
         };
       }
 
-      // Collapse to one entry per start time, listing who is free for it.
+      // Collapse to one entry per start time, listing what is free for it.
       const byTime = new Map();
       for (const r of rows) {
         const label = formatSlot(r.slot_start, ctx.timezone);
         if (!byTime.has(label)) byTime.set(label, []);
-        byTime.get(label).push(r.staff_name);
+        byTime.get(label).push(r.resource_name);
       }
       const slots = [...byTime.keys()].sort();
 
@@ -217,12 +228,12 @@ export const toolSpecs = [
         earliest: slots[0],
         latest: slots[slots.length - 1],
         total_free: slots.length,
-        slots: spread.map((t) => ({ time: t, masters: byTime.get(t) })),
+        slots: spread.map((t) => ({ time: t, available: byTime.get(t) })),
         message:
           `${slots.length} start times are free, from ${slots[0]} to ${slots[slots.length - 1]}. ` +
           "These are the shop's own bookable start times — offer them exactly as given and never a time in between. " +
           "The list is a sample across the day, so do not tell the customer a part of the day is unavailable. " +
-          "Offer two or three that suit what they asked for, and name the master only if they asked for one.",
+          "Offer two or three that suit what they asked for. Name the person, table or room only if the customer asked for a specific one.",
       };
     },
   },
@@ -239,7 +250,12 @@ export const toolSpecs = [
         time: { type: "string", description: "HH:MM in shop-local time, exactly as offered." },
         customer_name: { type: "string" },
         customer_contact: { type: "string", description: "Phone, Telegram handle, or email." },
-        staff_name: { type: "string", description: "Only if the customer asked for a specific master." },
+        party_size: {
+          type: "integer",
+          minimum: 1,
+          description: "How many people. Must match what you passed to check_availability.",
+        },
+        resource_name: { type: "string", description: "Only if the customer asked for a specific one." },
         note: { type: "string" },
       },
       required: ["service_id", "date", "time", "customer_name", "customer_contact"],
@@ -250,16 +266,16 @@ export const toolSpecs = [
         return { ok: false, error: "date must be YYYY-MM-DD and time HH:MM." };
       }
 
-      let staffId = null;
-      if (input.staff_name) {
-        const { data: staff } = await ctx.supabase
-          .from("staff")
+      let resourceId = null;
+      if (input.resource_name) {
+        const { data: resource } = await ctx.supabase
+          .from("resources")
           .select("id")
           .eq("user_id", ctx.userId)
           .eq("active", true)
-          .ilike("name", `%${input.staff_name}%`)
+          .ilike("name", `%${input.resource_name}%`)
           .maybeSingle();
-        staffId = staff?.id || null;
+        resourceId = resource?.id || null;
       }
 
       const startsAt = localToInstant(input.date, input.time, ctx.timezone);
@@ -268,15 +284,20 @@ export const toolSpecs = [
         p_user_id: ctx.userId,
         p_service_id: input.service_id,
         p_starts_at: startsAt.toISOString(),
-        p_staff_id: staffId,
+        p_resource_id: resourceId,
         p_conversation_id: ctx.conversationId,
         p_customer_name: input.customer_name || null,
         p_customer_contact: input.customer_contact || null,
         p_note: input.note || null,
         p_timezone: ctx.timezone || DEFAULT_TZ,
+        p_party: Math.max(1, Number(input.party_size) || 1),
       });
 
       if (error) {
+        if ((error.message || "").includes("party_out_of_range")) {
+          const [, min, max] = (error.message || "").split(":");
+          return { ok: false, error: `This takes between ${min} and ${max} people. Ask the customer for a party size in range.` };
+        }
         if ((error.message || "").includes("slot_taken")) {
           return {
             ok: false,

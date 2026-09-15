@@ -109,14 +109,28 @@ export function formatContext({ entries, products, services }) {
     sections.push(
       "### Services customers can book\n" +
         services
-          .map(
-            (s) =>
-              `- [service_id:${s.id}] ${s.name} — ${money(s.price, s.currency)} · ${s.duration_min} min${
-                s.category ? ` · ${s.category}` : ""
-              }${s.masters ? ` · done by ${s.masters}` : ""}${s.image_url ? " · has a photo" : ""}${
-                s.description ? `\n  ${s.description}` : ""
-              }`,
-          )
+          .map((s) => {
+            // Tell the model what KIND of booking this is, so it knows whether
+            // to ask how many people before checking times.
+            const party =
+              s.booking_mode === "appointment"
+                ? "one person"
+                : s.max_party > 1
+                  ? `${s.min_party}\u2013${s.max_party} people — ASK how many before checking times`
+                  : "one person";
+            const kind =
+              s.booking_mode === "seating"
+                ? "reserved for a group"
+                : s.booking_mode === "class"
+                  ? "shared session, seats sold individually"
+                  : "one-to-one appointment";
+
+            return `- [service_id:${s.id}] ${s.name} — ${money(s.price, s.currency)} · ${s.duration_min} min${
+              s.category ? ` · ${s.category}` : ""
+            } · ${kind} · ${party}${s.masters ? ` · available with ${s.masters}` : ""}${
+              s.image_url ? " · has a photo" : ""
+            }${s.description ? `\n  ${s.description}` : ""}`;
+          })
           .join("\n"),
     );
   }

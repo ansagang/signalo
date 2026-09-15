@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useAdjustStock,
   useServices, useCreateService, useUpdateService, useDeleteService,
-  useStaff, useServiceStaffMap, useSetServiceStaff,
+  useResources, useServiceResourceMap, useSetServiceResources,
 } from "@/hooks/use-catalogue";
 import useDebounce from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
@@ -30,11 +30,13 @@ const emptyProduct = {
   stock: 0, low_stock_at: 3, track_stock: true, active: true, image_url: null,
 };
 
-const emptyService = {
+export const emptyService = {
   name: "", description: "", category: "", price: 0, currency: "kzt",
   duration_min: 60, buffer_min: 10, max_parallel: 1, active: true, image_url: null,
   slot_mode: "grid", slot_step_min: 30, slot_times: [], lead_time_min: 0,
+  booking_mode: "appointment", min_party: 1, max_party: 1,
 };
+
 
 export default function CatalogueManager({ language }) {
   const p = language.app.pages.catalogue;
@@ -48,11 +50,24 @@ export default function CatalogueManager({ language }) {
   const filters = debounced ? { search: debounced } : undefined;
   const { data: products, isLoading: loadingProducts } = useProducts(filters);
   const { data: services, isLoading: loadingServices } = useServices(filters);
-  const { data: staff } = useStaff();
-  const { data: staffMap } = useServiceStaffMap();
+  const { data: resources } = useResources();
+  const { data: resourceMap } = useServiceResourceMap();
+
+  // Every service — a haircut or a yoga class — is performed by a person.
+  const people = useMemo(
+    () => (resources || []).filter((r) => (r.kind || "person") === "person"),
+    [resources],
+  );
 
   const loading = tab === "products" ? loadingProducts : loadingServices;
   const rows = tab === "products" ? products : services;
+
+  const TABS = {
+    products: { blank: emptyProduct, icon: PackageIcon, add: p.addProduct, empty: p.empty.products },
+    services: { blank: emptyService, icon: SparklesIcon, add: p.addService, empty: p.empty.services },
+  };
+  const current = TABS[tab];
+  const startNew = () => setEditing({ kind: tab, row: { ...current.blank } });
 
   return (
     <div>
@@ -72,13 +87,9 @@ export default function CatalogueManager({ language }) {
           icon={SearchIcon}
           className="flex-1 min-w-[180px]"
         />
-        <Button
-          onClick={() =>
-            setEditing({ kind: tab, row: tab === "products" ? { ...emptyProduct } : { ...emptyService } })
-          }
-        >
+        <Button onClick={startNew}>
           <PlusIcon className="size-4" />
-          {tab === "products" ? p.addProduct : p.addService}
+          {current.add}
         </Button>
       </div>
 
@@ -86,17 +97,13 @@ export default function CatalogueManager({ language }) {
         <Loading />
       ) : !rows?.length ? (
         <EmptyState
-          icon={tab === "products" ? PackageIcon : SparklesIcon}
-          title={tab === "products" ? p.empty.products.title : p.empty.services.title}
-          description={tab === "products" ? p.empty.products.subtitle : p.empty.services.subtitle}
+          icon={current.icon}
+          title={current.empty.title}
+          description={current.empty.subtitle}
           action={
-            <Button
-              onClick={() =>
-                setEditing({ kind: tab, row: tab === "products" ? { ...emptyProduct } : { ...emptyService } })
-              }
-            >
+            <Button onClick={startNew}>
               <PlusIcon className="size-4" />
-              {tab === "products" ? p.addProduct : p.addService}
+              {current.add}
             </Button>
           }
         />
@@ -109,8 +116,8 @@ export default function CatalogueManager({ language }) {
               <ServiceCard
                 key={row.id}
                 service={row}
-                staff={staff}
-                assigned={staffMap?.[row.id] || []}
+                resources={people}
+                assigned={resourceMap?.[row.id] || []}
                 p={p}
                 res={res}
                 onEdit={() => setEditing({ kind: "services", row })}
@@ -124,8 +131,8 @@ export default function CatalogueManager({ language }) {
         <EditorDialog
           kind={editing.kind}
           row={editing.row}
-          staff={staff}
-          assigned={staffMap?.[editing.row?.id] || []}
+          resources={people}
+          assigned={resourceMap?.[editing.row?.id] || []}
           p={p}
           res={res}
           language={language}
@@ -138,7 +145,7 @@ export default function CatalogueManager({ language }) {
 
 /* ──────────────────────────────── cards ──────────────────────────────── */
 
-function Thumb({ src, fallback: Fallback, tint }) {
+export function Thumb({ src, fallback: Fallback, tint }) {
   return src ? (
     <img src={src} alt="" className="w-full h-28 object-cover" />
   ) : (
@@ -231,10 +238,10 @@ function ProductCard({ product, p, res, onEdit }) {
   );
 }
 
-function ServiceCard({ service, staff, assigned, p, res, onEdit }) {
+export function ServiceCard({ service, resources, assigned, p, res, onEdit }) {
   const deleteService = useDeleteService();
 
-  const masters = (staff || []).filter((s) => assigned.includes(s.id));
+  const masters = (resources || []).filter((s) => assigned.includes(s.id));
   const slotLabel =
     service.slot_mode === "fixed"
       ? (service.slot_times || []).map((t) => String(t).slice(0, 5)).join(", ") || p.slots.noneSet
@@ -275,6 +282,9 @@ function ServiceCard({ service, staff, assigned, p, res, onEdit }) {
           <div className="flex items-start gap-1.5">
             <UsersIcon className="size-3 text-muted shrink-0 mt-px" />
             <dd className={cn("truncate", masters.length ? "text-secondary" : "text-muted")}>
+              {service.max_party > 1 && (
+                <span className="text-fg">{p.booking.upTo.replace("{n}", service.max_party)} · </span>
+              )}
               {masters.length ? masters.map((m) => m.name).join(", ") : p.anyMaster}
             </dd>
           </div>
@@ -300,7 +310,7 @@ function ServiceCard({ service, staff, assigned, p, res, onEdit }) {
   );
 }
 
-function RowActions({ onEdit, onDelete, p }) {
+export function RowActions({ onEdit, onDelete, p }) {
   return (
     <div className="ml-auto flex items-center gap-1">
       <button onClick={onEdit} aria-label={p.edit}
@@ -317,7 +327,7 @@ function RowActions({ onEdit, onDelete, p }) {
 
 /* ─────────────────────────────── editor ──────────────────────────────── */
 
-function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose }) {
+export function EditorDialog({ kind, row, resources, assigned, p, res, language, onClose }) {
   const isProduct = kind === "products";
   const [form, setForm] = useState(row);
   const [masters, setMasters] = useState(assigned);
@@ -329,7 +339,7 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
   const updateProduct = useUpdateProduct();
   const createService = useCreateService();
   const updateService = useUpdateService();
-  const setServiceStaff = useSetServiceStaff();
+  const setServiceResources = useSetServiceResources();
 
   const pending =
     createProduct.isPending || updateProduct.isPending ||
@@ -343,7 +353,7 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
 
     const finish = async (serviceId) => {
       if (!isProduct && serviceId) {
-        await setServiceStaff.mutateAsync({ serviceId, staffIds: masters });
+        await setServiceResources.mutateAsync({ serviceId, resourceIds: masters });
       }
       showSuccess(row.id ? res.catalogueUpdated : res.catalogueCreated);
       onClose();
@@ -367,6 +377,10 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
     payload.max_parallel = Number(payload.max_parallel) || 1;
     payload.slot_step_min = Number(payload.slot_step_min) || 30;
     payload.lead_time_min = Number(payload.lead_time_min) || 0;
+    payload.min_party = 1;
+    payload.max_party = Math.max(1, Number(payload.max_party) || 1);
+    // One seat is an appointment; several are a group that fills up.
+    payload.booking_mode = payload.max_party > 1 ? "class" : "appointment";
 
     if (payload.slot_mode === "fixed") {
       const parsed = times
@@ -445,6 +459,21 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
             </div>
           ) : (
             <>
+              <div className="border-b border-secondary-transparent pb-4">
+                <Field label={p.booking.maxParty}>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.max_party}
+                    onChange={(e) => set("max_party", e.target.value)}
+                    className="w-[130px]"
+                  />
+                </Field>
+                <Hint className="mt-2">
+                  {Number(form.max_party) > 1 ? p.booking.groupHint : p.booking.soloHint}
+                </Hint>
+              </div>
+
               <div className="flex gap-3">
                 <Field label={p.fields.duration} className="flex-1">
                   <Input type="number" min="5" step="5" value={form.duration_min} onChange={(e) => set("duration_min", e.target.value)} />
@@ -490,14 +519,14 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
               </div>
 
               <div className="border-t border-secondary-transparent pt-4">
-                <p className="text-[13px] font-semibold text-fg mb-1">{p.masters.title}</p>
-                <Hint className="mb-3">{p.masters.help}</Hint>
+                <p className="text-[13px] font-semibold text-fg mb-1">{p.resourcesSection.title}</p>
+                <Hint className="mb-3">{p.resourcesSection.help}</Hint>
 
-                {!staff?.length ? (
-                  <Hint>{p.masters.noStaff}</Hint>
+                {!resources?.length ? (
+                  <Hint>{p.resourcesSection.none}</Hint>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
-                    {staff.filter((s) => s.active).map((s) => {
+                    {resources.filter((s) => s.active).map((s) => {
                       const on = masters.includes(s.id);
                       return (
                         <button
@@ -518,8 +547,8 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
                     })}
                   </div>
                 )}
-                {!masters.length && staff?.length > 0 && (
-                  <Hint className="mt-2">{p.masters.noneSelected}</Hint>
+                {!masters.length && resources?.length > 0 && (
+                  <Hint className="mt-2">{p.resourcesSection.noneSelected}</Hint>
                 )}
               </div>
             </>
