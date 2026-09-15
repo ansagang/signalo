@@ -3,7 +3,7 @@ import {
   getProducts, createProduct, updateProduct, deleteProduct, adjustStock, resetStock, getStockMovements,
   getServices, createService, updateService, deleteService,
   getResources, createResource, updateResource, deleteResource,
-  getBusinessHours, saveBusinessHours,
+  getBusinessHours, saveBusinessHours, saveTimezone,
   getServiceResourceMap, setServiceResources, setResourceServices,
   getResourceHours, saveResourceHours,
 } from "@/actions/catalogue";
@@ -121,3 +121,7 @@ export function useBusinessHours() {
   return useQuery({ queryKey: ["business-hours"], queryFn: getBusinessHours, staleTime: 5 * 60_000 });
 }
 export const useSaveBusinessHours = crud("business-hours", saveBusinessHours);
+
+export function useSaveTimezone() {
+  return useMutation({ mutationFn: (timezone) => saveTimezone(timezone) });
+}

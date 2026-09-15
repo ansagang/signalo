@@ -1,3 +1,4 @@
+import { DEFAULT_TZ } from "@/lib/timezone";
 const TONE_GUIDES = {
   friendly:
     "Warm and casual. Short sentences, first person, the occasional emoji. Talk like a helpful shop assistant, never like a brochure.",
@@ -157,10 +158,47 @@ Call tools silently. Never mention tool names, ids, or the catalogue's internal 
  * The volatile half: retrieved catalogue plus anything time-dependent.
  * Always goes after the cache breakpoint.
  */
+/**
+ * What this customer already has on the books.
+ *
+ * Without this the model only knows what is still inside the message window,
+ * so a booking made twenty messages ago has effectively never happened — and
+ * it will happily tell the customer they have nothing booked.
+ */
+function buildRecordBlock({ appointments = [], orders = [] }, timezone) {
+  if (!appointments.length && !orders.length) return null;
+
+  const when = (iso) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      weekday: "short", day: "numeric", month: "short",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(new Date(iso));
+
+  const lines = [];
+
+  for (const a of appointments) {
+    const bits = [`${when(a.starts_at)} — ${a.services?.name || "booking"}`];
+    if (a.party_size > 1) bits.push(`${a.party_size} people`);
+    if (a.resources?.name) bits.push(`with ${a.resources.name}`);
+    bits.push(`status: ${a.status}`);
+    lines.push(`- ${bits.join(", ")}`);
+  }
+
+  for (const o of orders) {
+    const items = Array.isArray(o.items)
+      ? o.items.map((i) => `${i.quantity || 1}× ${i.title || i.name || "item"}`).join(", ")
+      : "";
+    lines.push(`- Order ${items ? `(${items})` : ""} — total ${o.total} ${String(o.currency || "").toUpperCase()}, status: ${o.status}`);
+  }
+
+  return lines.join("\n");
+}
+
 export function buildContextPrompt(
   persona,
   contextBlock,
-  { now = new Date(), timezone = "Asia/Almaty" } = {},
+  { now = new Date(), timezone = DEFAULT_TZ, record = null } = {},
 ) {
   const open = withinWorkingHours(persona, now);
 
@@ -181,6 +219,15 @@ It is ${weekday}, ${today} (${timezone}). Resolve every relative date the custom
     `## Catalogue — the only things you may speak about
 ${contextBlock}`,
   ];
+
+  const recordBlock = record && buildRecordBlock(record, timezone);
+  if (recordBlock) {
+    parts.push(`## Already on the books for this customer
+These are real records from the database, not something you should doubt. Treat them as confirmed.
+${recordBlock}
+
+If the customer asks whether they are booked, answer from this list. Never tell them nothing is booked while a booking is listed here. To change or cancel one, hand over to a human.`);
+  }
 
   if (!open) {
     parts.push(`## Out of hours

@@ -1,4 +1,5 @@
 import { getUser } from "@/actions/auth";
+import { tzOf } from "@/lib/timezone";
 import { getLanguage } from "@/lib/get-language";
 import { getOverviewStats } from "@/actions/stats";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ function Stat({ label, value, sub, icon: Icon, tone = "text-fg" }) {
 export default async function OverviewPage() {
   const { data: user } = await getUser();
   const language = await getLanguage({ user });
+  const tz = tzOf(user);
   const p = language.app.pages.overview;
   // The proxy guards this route, so a session is expected — but a stale
   // cookie would otherwise crash the render on stats.entries.
@@ -167,7 +169,7 @@ export default async function OverviewPage() {
             stats.todayBookings.map((b) => (
               <div key={b.id} className="flex items-center gap-3 px-5 py-2.5 border-b border-secondary-transparent2 last:border-b-0">
                 <span className="text-[12px] font-semibold text-fg tabular-nums shrink-0">
-                  {new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Almaty", hour: "2-digit", minute: "2-digit" }).format(new Date(b.starts_at))}
+                  {new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }).format(new Date(b.starts_at))}
                 </span>
                 <span className="text-[12px] text-secondary truncate flex-1">{b.services?.name}</span>
                 <span className="text-[11px] text-muted truncate max-w-[100px]">{b.customer_name}</span>

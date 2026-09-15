@@ -5,12 +5,15 @@ import {
   useBusinessHours, useSaveBusinessHours,
   useResources, useCreateResource, useUpdateResource, useDeleteResource,
   useResourceHours, useSaveResourceHours,
-  useServices, useServiceResourceMap, useSetResourceServices,
+  useServices, useServiceResourceMap, useSetResourceServices, useSaveTimezone,
 } from "@/hooks/use-catalogue";
+import { COMMON_TIMEZONES, DEFAULT_TZ, tzLabel } from "@/lib/timezone";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { cn } from "@/lib/utils";
 import { showError, showSuccess } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Section, Panel, Loading, Hint, EmptyState } from "@/components/ui/page";
 import {
@@ -93,7 +96,7 @@ function WeekEditor({ rows, onChange, dayNames, labels, compact }) {
   );
 }
 
-export default function BusinessSettings({ language }) {
+export default function BusinessSettings({ language, timezone }) {
   const p = language.app.pages.business;
   const res = language.app.res;
   const dayNames = language.app.global.weekdaysFull;
@@ -108,9 +111,65 @@ export default function BusinessSettings({ language }) {
         </div>
       </Panel>
 
+      <Clock p={p} res={res} current={timezone} />
       <ShopHours p={p} res={res} dayNames={dayNames} />
       <Team p={p} res={res} dayNames={dayNames} />
     </>
+  );
+}
+
+/**
+ * Which clock the business runs on.
+ *
+ * Sits above opening hours because "10:00–20:00" is meaningless until you
+ * know whose 10:00 it is.
+ */
+function Clock({ p, res, current }) {
+  const save = useSaveTimezone();
+  const [zone, setZone] = useState(current || DEFAULT_TZ);
+
+  // Whatever is stored must be selectable even if it is not in the short list.
+  const options = COMMON_TIMEZONES.includes(zone) ? COMMON_TIMEZONES : [zone, ...COMMON_TIMEZONES];
+
+  const now = new Intl.DateTimeFormat("en-GB", {
+    timeZone: zone, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date());
+
+  return (
+    <Section title={p.clock.title} description={p.clock.subtitle} icon={ClockIcon}>
+      <Panel className="p-4 flex flex-wrap items-end gap-3">
+        <Field label={p.clock.label} className="flex-1 min-w-[240px]">
+          <NativeSelect value={zone} onChange={(e) => setZone(e.target.value)}>
+            {options.map((z) => (
+              <NativeSelectOption key={z} value={z}>{tzLabel(z)}</NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+        <div className="pb-2.5">
+          <Badge className="bg-secondary-transparent2 text-secondary">
+            {p.clock.nowIs.replace("{time}", now)}
+          </Badge>
+        </div>
+        <Button
+          className="mb-0.5"
+          disabled={save.isPending || zone === (current || DEFAULT_TZ)}
+          onClick={() =>
+            save.mutate(zone, {
+              onSuccess: (r) => {
+                if (r?.success === false) return showError(r.message);
+                showSuccess(res.timezoneSaved);
+                // Opening hours and the timetable are rendered on the server
+                // against this, so the page has to come back for them.
+                window.location.reload();
+              },
+              onError: () => showError(res.timezoneSaveError),
+            })
+          }
+        >
+          {save.isPending ? <LoaderIcon className="size-4 animate-spin" /> : p.clock.save}
+        </Button>
+      </Panel>
+    </Section>
   );
 }
 

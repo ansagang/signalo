@@ -618,14 +618,21 @@
         "slots": {
           "title": "When it can start",
           "help": "Customers are offered these start times and nothing in between. Pick a regular rhythm, or list exact times.",
-          "grid": "Every N minutes",
-          "fixed": "Exact times",
+          "grid": "Fixed steps",
+          "fixed": "Set times",
           "stepLabel": "Start a new appointment",
           "everyN": "every {n} min",
           "timesLabel": "Start times",
           "timesHint": "Comma separated, 24-hour. e.g. 11:00, 14:00, 17:00",
           "needTimes": "Add at least one start time, like 11:00",
-          "noneSet": "No times set"
+          "noneSet": "No times set",
+          "any": "Any time",
+          "anyShort": "Any time",
+          "modeHints": {
+            "any": "Takes whatever time the customer asks for, whenever there is room. Suggests a few times across the day so the assistant has something to offer. How most tables, salons and studios really work.",
+            "grid": "Only the times on the step below. A customer asking for 19:07 is offered 19:00 or 19:30 instead.",
+            "fixed": "Only the exact start times you list. For anything everyone begins together."
+          }
         },
         "masters": {
           "title": "Who can do it",
@@ -637,13 +644,15 @@
           "maxParty": "Maximum people",
           "upTo": "up to {n}",
           "soloHint": "One customer at a time — a haircut, a consultation, a repair.",
-          "groupHint": "A group books the same slot until the seats run out — a lesson, a tour, a table."
+          "groupHint": "A group books the same slot until the seats run out — a lesson, a tour, a table.",
+          "capacity": "How many at once",
+          "capacityHint": "How many of these can run at the same time — tables in the room, mats in the studio, chairs in the shop. Ignored if you name specific people below, because then each person is their own queue."
         },
         "resourcesSection": {
-          "title": "What can serve it",
-          "help": "Only what you tick here is offered for this service — the people, tables or rooms it can use. Tick nothing and anything suitable can take it.",
-          "none": "Add people, tables or rooms under Business first.",
-          "noneSelected": "Nothing selected — anything suitable can take this."
+          "title": "Who does it (optional)",
+          "help": "Only for work a named person performs, like a stylist or a doctor. A table booking or a class has nobody attached — leave this empty and the limit above is what counts.",
+          "none": "No people added yet. Add them under Business if customers book by name.",
+          "noneSelected": "Nobody attached — this is limited only by “How many at once” ({n})."
         }
       },
       "bookings": {
@@ -690,7 +699,10 @@
           "status": "Status",
           "party": "People",
           "anyResource": "Anyone free",
-          "resource": "With"
+          "resource": "With",
+          "remove": "Remove",
+          "confirmRemove": "Remove this booking from the calendar? This cannot be undone.",
+          "finishedHint": "This booking no longer holds its time — only booked and confirmed do. Remove it to clear the calendar."
         },
         "unassigned": "Unassigned",
         "allBookings": "All bookings",
@@ -699,12 +711,14 @@
           "showEmpty": "Show {n} with nothing booked",
           "hideEmpty": "Hide empty"
         },
-        "kinds": {
-          "person": "People",
-          "table": "Tables",
-          "room": "Rooms",
-          "equipment": "Equipment"
-        }
+        "groups": {
+          "auto": "Automatic",
+          "person": "By person",
+          "service": "By service",
+          "none": "One list"
+        },
+        "noPerson": "No one assigned",
+        "partyOf": "{n} guests"
       },
       "business": {
         "meta": {
@@ -744,8 +758,15 @@
           "shiftsTitle": "Working hours"
         },
         "explain": {
-          "title": "These settings decide when the assistant can book",
-          "body": "A time is offered only when you are open, the resource is available, it is assigned to the service, and it is big enough for the party. Assignments live in Catalogue → Services."
+          "title": "What decides when the assistant can book",
+          "body": "A time is offered when you are open, the service still has room at that hour, and the party fits. Naming people is optional — do it only for work a specific person performs. Capacity and people are both set in Catalogue → Services."
+        },
+        "clock": {
+          "title": "Your clock",
+          "subtitle": "Opening hours, booking times and everything the assistant says are resolved against this.",
+          "label": "Timezone",
+          "nowIs": "Right now it is {time} there",
+          "save": "Save clock"
         }
       },
       "landing": {
@@ -991,7 +1012,11 @@
       "resourceDeleted": "Removed",
       "resourceDeleteError": "Could not remove",
       "stockReset": "Availability reset for {n} product(s)",
-      "stockResetError": "Could not reset availability"
+      "stockResetError": "Could not reset availability",
+      "bookingRemoved": "Booking removed",
+      "bookingRemoveError": "Could not remove the booking",
+      "timezoneSaved": "Clock updated",
+      "timezoneSaveError": "Could not save the timezone"
     },
     "global": {
       "currencies": {

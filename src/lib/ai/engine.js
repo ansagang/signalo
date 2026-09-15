@@ -1,3 +1,4 @@
+import { DEFAULT_TZ } from "@/lib/timezone";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { resolveModel } from "./models";
@@ -289,7 +290,7 @@ export async function* runChat({
   userMessage,
   channel = "web",
   businessName,
-  timezone = "Asia/Almaty",
+  timezone = DEFAULT_TZ,
 }) {
   const model = resolveModel(persona.model);
   const events = [];
@@ -310,6 +311,34 @@ export async function* runChat({
   });
 
   const history = await loadHistory(supabase, conversation.id);
+
+  // What this customer already has, so the assistant never denies a booking it
+  // made itself a few messages ago.
+  let record = null;
+  try {
+    const [{ data: appointments }, { data: orders }] = await Promise.all([
+      supabase
+        .from("appointments")
+        .select("starts_at, status, party_size, services(name), resources(name)")
+        .eq("user_id", userId)
+        .eq("conversation_id", conversation.id)
+        .neq("status", "cancelled")
+        .order("starts_at", { ascending: true })
+        .limit(10),
+      supabase
+        .from("orders")
+        .select("items, total, currency, status")
+        .eq("user_id", userId)
+        .eq("conversation_id", conversation.id)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: true })
+        .limit(10),
+    ]);
+    record = { appointments: appointments || [], orders: orders || [] };
+  } catch {
+    // Worth answering without, never worth failing the turn over.
+    record = null;
+  }
 
   let contextBlock;
   try {
@@ -332,7 +361,7 @@ export async function* runChat({
       text: buildPersonaPrompt(persona, { businessName }),
       cache_control: { type: "ephemeral" }, // stable half — cached across turns
     },
-    { type: "text", text: buildContextPrompt(persona, contextBlock, { timezone }) },
+    { type: "text", text: buildContextPrompt(persona, contextBlock, { timezone, record }) },
   ];
 
   const args = { model, system, messages: history, persona, ctx };

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
+import { tzForUser } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,12 +48,21 @@ export async function POST(request, { params }) {
   const token = channel.secrets?.bot_token;
   if (!token) return ok();
 
-  const api = (method, body) =>
-    fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, ...body }),
-    }).catch(() => {});
+  const api = async (method, body) => {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, ...body }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!json.ok) console.error(`telegram ${method}:`, json.description || res.status);
+      return json;
+    } catch (err) {
+      console.error(`telegram ${method}:`, err?.message || err);
+      return { ok: false };
+    }
+  };
 
   const send = (body) => api("sendMessage", body);
 
@@ -62,9 +72,6 @@ export async function POST(request, { params }) {
    * pictures have to be pushed as an album (or a single photo).
    */
   async function sendCards(cards) {
-    const withPhotos = cards.filter((c) => c.image_url);
-    if (!withPhotos.length) return;
-
     const caption = (c) => {
       const price = Number(c.price || 0);
       const bits = [c.name];
@@ -73,19 +80,30 @@ export async function POST(request, { params }) {
       return bits.join(" — ");
     };
 
+    const withPhotos = cards.filter((c) => c.image_url);
+    const withoutPhotos = cards.filter((c) => !c.image_url);
+
     if (withPhotos.length === 1) {
-      await api("sendPhoto", { photo: withPhotos[0].image_url, caption: caption(withPhotos[0]) });
-      return;
+      const only = withPhotos[0];
+      const sent = await api("sendPhoto", { photo: only.image_url, caption: caption(only) });
+      // A URL Telegram cannot fetch should still reach the customer as text.
+      if (!sent?.ok) await api("sendMessage", { text: caption(only) });
+    } else if (withPhotos.length > 1) {
+      // sendMediaGroup takes 2–10 items and is one message in the chat.
+      const batch = withPhotos.slice(0, 10);
+      const sent = await api("sendMediaGroup", {
+        media: batch.map((c) => ({ type: "photo", media: c.image_url, caption: caption(c) })),
+      });
+      if (!sent?.ok) {
+        await api("sendMessage", { text: batch.map((c) => `• ${caption(c)}`).join("\n") });
+      }
     }
 
-    // sendMediaGroup takes 2–10 items and is one message in the chat.
-    await api("sendMediaGroup", {
-      media: withPhotos.slice(0, 10).map((c) => ({
-        type: "photo",
-        media: c.image_url,
-        caption: caption(c),
-      })),
-    });
+    if (withoutPhotos.length) {
+      await api("sendMessage", {
+        text: withoutPhotos.map((c) => `• ${caption(c)}`).join("\n"),
+      });
+    }
   }
 
   const { data: persona } = await supabase
@@ -141,6 +159,7 @@ export async function POST(request, { params }) {
       conversation,
       userMessage: text,
       channel: "telegram",
+      timezone: await tzForUser(supabase, channel.user_id),
     });
 
     // Photos first, so the text that references them lands underneath.

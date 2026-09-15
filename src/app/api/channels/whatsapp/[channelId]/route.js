@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
+import { tzForUser } from "@/lib/timezone";
 import {
   sendWhatsAppText, sendWhatsAppImage, markReadAndTyping, verifySignature,
 } from "@/lib/channels/whatsapp";
@@ -160,6 +161,7 @@ export async function POST(request, { params }) {
       conversation,
       userMessage: text,
       channel: "whatsapp",
+      timezone: await tzForUser(supabase, channel.user_id),
     });
 
     for (const event of events) {

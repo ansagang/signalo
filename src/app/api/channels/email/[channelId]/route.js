@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { sendEmail, parseInbound, replySubject, fetchInboundBody } from "@/lib/channels/email";
+import { tzForUser } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,6 +127,7 @@ export async function POST(request, { params }) {
       conversation,
       userMessage,
       channel: "email",
+      timezone: await tzForUser(supabase, channel.user_id),
     });
 
     // Email has no card surface; append the links so nothing is lost.

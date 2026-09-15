@@ -1,6 +1,7 @@
 import { getUser } from "@/actions/auth";
 import { getLanguage } from "@/lib/get-language";
 import { PageHeader } from "@/components/ui/page";
+import { tzOf } from "@/lib/timezone";
 import BusinessSettings from "./business-settings";
 
 export async function generateMetadata() {
@@ -22,7 +23,7 @@ export default async function BusinessPage() {
         title={language.app.pages.business.meta.title}
         description={language.app.pages.business.meta.description}
       />
-      <BusinessSettings language={language} />
+      <BusinessSettings language={language} timezone={tzOf(user)} />
     </div>
   );
 }

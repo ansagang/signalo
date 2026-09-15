@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import {
   getAppointments,
   updateAppointment,
+  deleteAppointment,
   createAppointment,
   getAvailability,
 } from "@/actions/bookings";
@@ -33,6 +34,14 @@ export function useUpdateAppointment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, updates }) => updateAppointment(id, updates),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
+  });
+}
+
+export function useDeleteAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => deleteAppointment(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["appointments"] }),
   });
 }

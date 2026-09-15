@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAppointments, useUpdateAppointment, useCreateAppointment, useAvailability } from "@/hooks/use-bookings";
+import { useAppointments, useUpdateAppointment, useDeleteAppointment, useCreateAppointment, useAvailability } from "@/hooks/use-bookings";
 import { useServices, useResources, useBusinessHours } from "@/hooks/use-catalogue";
 import { cn } from "@/lib/utils";
+import { DEFAULT_TZ } from "@/lib/timezone";
 import { money, timeOnly } from "@/lib/display";
 import { showError, showSuccess } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -14,23 +15,15 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loading, EmptyState, Hint, Segmented } from "@/components/ui/page";
 import {
-  ArmchairIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon,
-  DoorOpenIcon, LayoutGridIcon, LoaderIcon, PhoneIcon, PlusIcon,
-  UserRoundIcon, WrenchIcon,
+  CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, LayoutGridIcon,
+  ListIcon, LoaderIcon, PhoneIcon, PlusIcon, SparklesIcon, Trash2Icon,
+  UserRoundIcon,
 } from "lucide-react";
 
-// Resources are people, tables, rooms or equipment — the filter needs a face
-// for each so a restaurant host can pick "Tables" without reading labels.
-const KIND_ICON = {
-  person: UserRoundIcon,
-  table: ArmchairIcon,
-  room: DoorOpenIcon,
-  equipment: WrenchIcon,
-};
 
-const TZ = "Asia/Almaty";
 const ROW_PX = 56;          // one hour
 const UNASSIGNED = "__none__";
+const ALL = "__all__";
 
 const STATUS = {
   booked:    { chip: "bg-info/10 text-info",        block: "bg-info/15 border-info/45 hover:border-info" },
@@ -42,59 +35,75 @@ const STATUS = {
 
 /* ── date helpers, all in shop-local time so "today" means the shop's ── */
 
-const localDay = (d = new Date()) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-
-function addDays(day, n) {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return localDay(d);
-}
-
-/** Monday-first week containing `day`. */
-function weekOf(day) {
-  const d = new Date(`${day}T12:00:00Z`);
-  const dow = (d.getUTCDay() + 6) % 7;
-  const monday = addDays(day, -dow);
-  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-}
-
 /**
- * Offset of the shop's zone at a given instant.
+ * A set of date helpers bound to one timezone.
  *
- * Derived from formatted parts rather than re-parsing a localised string —
- * `new Date(d.toLocaleString(...))` reads the machine's timezone, so the same
- * code placed appointments differently depending on where it ran.
+ * These used to read a module-level constant, which is exactly how every time
+ * on the page ended up in Almaty regardless of where the business is. Built
+ * per zone and cached, because Intl formatters are not cheap to construct.
  */
-const PARTS = new Intl.DateTimeFormat("en-US", {
-  timeZone: TZ, hour12: false,
-  year: "numeric", month: "2-digit", day: "2-digit",
-  hour: "2-digit", minute: "2-digit", second: "2-digit",
-});
+const CLOCKS = new Map();
 
-function tzOffsetMs(instant) {
-  const p = Object.fromEntries(PARTS.formatToParts(instant).map((x) => [x.type, x.value]));
-  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
-  return asUtc - instant.getTime();
-}
+function clockFor(tz) {
+  const hit = CLOCKS.get(tz);
+  if (hit) return hit;
 
-/** The instant at which the shop's `day` begins. */
-function localMidnight(day) {
-  const [y, m, d] = day.split("-").map(Number);
-  const naive = Date.UTC(y, m - 1, d, 0, 0, 0);
-  // Offset is evaluated near the target instant so DST boundaries land right.
-  return new Date(naive - tzOffsetMs(new Date(naive)));
-}
+  const dayFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  // Formatted parts rather than re-parsing a localised string:
+  // `new Date(d.toLocaleString(...))` reads the machine's zone, so the same
+  // code placed appointments differently depending on where it ran.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
 
-function dayBounds(day) {
-  const from = localMidnight(day);
-  return { from: from.toISOString(), to: new Date(from.getTime() + 864e5).toISOString() };
-}
+  const localDay = (d = new Date()) => dayFmt.format(d);
 
-/** Minutes past shop-local midnight, read straight off the formatted clock. */
-function minutesInto(iso) {
-  const p = Object.fromEntries(PARTS.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
-  return (+p.hour % 24) * 60 + +p.minute;
+  const addDays = (day, n) => {
+    const d = new Date(`${day}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return localDay(d);
+  };
+
+  /** Monday-first week containing `day`. */
+  const weekOf = (day) => {
+    const d = new Date(`${day}T12:00:00Z`);
+    const dow = (d.getUTCDay() + 6) % 7;
+    const monday = addDays(day, -dow);
+    return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  };
+
+  const tzOffsetMs = (instant) => {
+    const x = Object.fromEntries(parts.formatToParts(instant).map((v) => [v.type, v.value]));
+    const asUtc = Date.UTC(+x.year, +x.month - 1, +x.day, +x.hour % 24, +x.minute, +x.second);
+    return asUtc - instant.getTime();
+  };
+
+  /** The instant at which the shop's `day` begins. */
+  const localMidnight = (day) => {
+    const [y, m, d] = day.split("-").map(Number);
+    const naive = Date.UTC(y, m - 1, d, 0, 0, 0);
+    // Offset evaluated near the target instant so DST boundaries land right.
+    return new Date(naive - tzOffsetMs(new Date(naive)));
+  };
+
+  const dayBounds = (day) => {
+    const from = localMidnight(day);
+    return { from: from.toISOString(), to: new Date(from.getTime() + 864e5).toISOString() };
+  };
+
+  /** Minutes past shop-local midnight, read straight off the formatted clock. */
+  const minutesInto = (iso) => {
+    const x = Object.fromEntries(parts.formatToParts(new Date(iso)).map((v) => [v.type, v.value]));
+    return (+x.hour % 24) * 60 + +x.minute;
+  };
+
+  const clock = { localDay, addDays, weekOf, localMidnight, dayBounds, minutesInto };
+  CLOCKS.set(tz, clock);
+  return clock;
 }
 
 /**
@@ -181,7 +190,10 @@ function TimetableSkeleton({ rows, columns }) {
   );
 }
 
-export default function BookingsBoard({ language }) {
+export default function BookingsBoard({ language, timezone }) {
+  // Every time on this page is the business's own local time.
+  const TZ = timezone || DEFAULT_TZ;
+  const { localDay, addDays, weekOf, dayBounds, minutesInto } = clockFor(TZ);
   const p = language.app.pages.bookings;
   const res = language.app.res;
   const locale = language.lang === "en" ? "en-GB" : language.lang;
@@ -189,7 +201,7 @@ export default function BookingsBoard({ language }) {
   const [day, setDay] = useState(() => localDay());
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [kindFilter, setKindFilter] = useState("all");
+  const [groupBy, setGroupBy] = useState("auto");
   const [showEmpty, setShowEmpty] = useState(false);
 
   const range = useMemo(() => dayBounds(day), [day]);
@@ -218,43 +230,58 @@ export default function BookingsBoard({ language }) {
 
   const active = useMemo(() => (resources || []).filter((r) => r.active), [resources]);
 
-  // Only offer the kind filter when the account actually mixes kinds — a salon
-  // with nothing but stylists should never see a "Tables" tab.
-  const kinds = useMemo(() => {
-    const present = [...new Set(active.map((r) => r.kind || "person"))];
-    return present.length > 1 ? present : [];
-  }, [active]);
+  // Not every business books by person. A restaurant's tables and a studio's
+  // classes have nobody attached, so columns-per-person would be one empty
+  // lane and everything piled into "unassigned". Group by whatever the day
+  // is actually made of, and let the user say otherwise.
+  const usesPeople = useMemo(() => {
+    const list = (appointments || []).filter((a) => a.status !== "cancelled");
+    if (!list.length) return false;
+    const withPerson = list.filter((a) => a.resource_id).length;
+    return withPerson * 2 > list.length;
+  }, [appointments]);
 
-  const booked = useMemo(
-    () => new Set((appointments || []).map((a) => a.resource_id).filter(Boolean)),
-    [appointments],
-  );
+  const effectiveGroup = groupBy === "auto" ? (usesPeople ? "person" : "service") : groupBy;
 
-  // Columns: the active resources, plus a catch-all if anything is unassigned.
-  // A dozen mostly-empty columns is unreadable, so past six we show only the
-  // ones this day actually uses; everything stays one click away.
   const columns = useMemo(() => {
-    let pool = active;
-    if (kindFilter !== "all") pool = pool.filter((r) => (r.kind || "person") === kindFilter);
+    const list = appointments || [];
 
+    if (effectiveGroup === "none") {
+      return [{ id: ALL, name: p.allBookings, icon: "" }];
+    }
+
+    if (effectiveGroup === "service") {
+      // One lane per service that actually has something on this day.
+      const seen = new Map();
+      for (const a of list) {
+        const id = a.service_id || UNASSIGNED;
+        if (!seen.has(id)) seen.set(id, a.services?.name || p.deletedService);
+      }
+      const cols = [...seen].map(([id, name]) => ({ id, name, icon: "", by: "service" }));
+      return cols.length ? cols : [{ id: ALL, name: p.allBookings, icon: "" }];
+    }
+
+    // By person: the people who work, plus a lane for anything with nobody on
+    // it — which for a table booking is the normal case, not an exception.
+    let pool = active;
     if (pool.length > 6 && !showEmpty) {
+      const booked = new Set(list.map((a) => a.resource_id).filter(Boolean));
       const used = pool.filter((r) => booked.has(r.id));
       if (used.length) pool = used;
     }
 
-    const cols = pool.map((r) => ({ id: r.id, name: r.name, icon: r.icon, kind: r.kind }));
-    if ((appointments || []).some((a) => !a.resource_id)) {
-      cols.push({ id: UNASSIGNED, name: p.unassigned, icon: "—" });
+    const cols = pool.map((r) => ({ id: r.id, name: r.name, icon: r.icon, by: "person" }));
+    if (list.some((a) => !a.resource_id)) {
+      cols.push({ id: UNASSIGNED, name: p.noPerson, icon: "", by: "person" });
     }
-    return cols.length ? cols : [{ id: UNASSIGNED, name: p.allBookings, icon: "" }];
-  }, [active, appointments, kindFilter, showEmpty, booked, p]);
+    return cols.length ? cols : [{ id: ALL, name: p.allBookings, icon: "" }];
+  }, [active, appointments, effectiveGroup, showEmpty, p]);
 
-  // How many the day-filter is holding back, so the count stays honest.
+  // How many people the day-filter is holding back, so the count stays honest.
   const hiddenCount = useMemo(() => {
-    const pool =
-      kindFilter === "all" ? active : active.filter((r) => (r.kind || "person") === kindFilter);
-    return Math.max(0, pool.length - columns.filter((c) => c.id !== UNASSIGNED).length);
-  }, [active, columns, kindFilter]);
+    if (effectiveGroup !== "person") return 0;
+    return Math.max(0, active.length - columns.filter((c) => c.by === "person" && c.id !== UNASSIGNED).length);
+  }, [active, columns, effectiveGroup]);
 
   // Vertical span: the shop's own hours for this weekday, widened to fit
   // anything booked outside them.
@@ -351,37 +378,28 @@ export default function BookingsBoard({ language }) {
         </Button>
       </div>
 
-      {/* ── which resources to show ── */}
-      {(kinds.length > 0 || hiddenCount > 0) && (
-        <div className="flex items-center gap-2 flex-wrap mb-3">
-          {kinds.length > 0 && (
-            <Segmented
-              value={kindFilter}
-              onChange={setKindFilter}
-              options={[
-                { value: "all", label: p.filters.allResources, icon: LayoutGridIcon, count: active.length },
-                ...kinds.map((k) => ({
-                  value: k,
-                  label: p.kinds[k] || k,
-                  icon: KIND_ICON[k],
-                  count: active.filter((r) => (r.kind || "person") === k).length,
-                })),
-              ]}
-            />
-          )}
-          {hiddenCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowEmpty((v) => !v)}
-              className="text-[12px] text-secondary hover:text-fg transition-colors cursor-pointer px-2 py-1"
-            >
-              {showEmpty
-                ? p.filters.hideEmpty
-                : p.filters.showEmpty.replace("{n}", hiddenCount)}
-            </button>
-          )}
-        </div>
-      )}
+      {/* ── how the day is laid out ── */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <Segmented
+          value={groupBy}
+          onChange={setGroupBy}
+          options={[
+            { value: "auto", label: p.groups.auto, icon: SparklesIcon },
+            ...(active.length ? [{ value: "person", label: p.groups.person, icon: UserRoundIcon }] : []),
+            { value: "service", label: p.groups.service, icon: LayoutGridIcon },
+            { value: "none", label: p.groups.none, icon: ListIcon },
+          ]}
+        />
+        {hiddenCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowEmpty((v) => !v)}
+            className="text-[12px] text-secondary hover:text-fg transition-colors cursor-pointer px-2 py-1"
+          >
+            {showEmpty ? p.filters.hideEmpty : p.filters.showEmpty.replace("{n}", hiddenCount)}
+          </button>
+        )}
+      </div>
 
       {/* ── timetable ── */}
       {notReady ? (
@@ -405,9 +423,7 @@ export default function BookingsBoard({ language }) {
                 <p className="text-[12px] font-semibold text-fg truncate leading-tight">
                   {c.icon} {c.name}
                 </p>
-                {c.kind && c.kind !== "person" && (
-                  <p className="text-[10px] text-muted truncate">{p.kinds[c.kind]}</p>
-                )}
+
               </div>
             ))}
           </div>
@@ -426,11 +442,11 @@ export default function BookingsBoard({ language }) {
               </div>
 
               {columns.map((c) => {
-                const mine = (appointments || []).filter((a) =>
-                  c.id === UNASSIGNED
-                    ? !a.resource_id || columns.length === 1
-                    : a.resource_id === c.id,
-                );
+                const mine = (appointments || []).filter((a) => {
+                  if (c.id === ALL) return true;
+                  if (c.by === "service") return (a.service_id || UNASSIGNED) === c.id;
+                  return c.id === UNASSIGNED ? !a.resource_id : a.resource_id === c.id;
+                });
                 return (
                   <div key={c.id} className="flex-1 min-w-[132px] relative border-r border-secondary-transparent last:border-r-0">
                     {rows.map((h) => (
@@ -463,14 +479,18 @@ export default function BookingsBoard({ language }) {
                               (per hand)" on one line, and the row position
                               already says when it starts — so drop the time. */}
                           <p className="text-[11px] font-semibold text-fg truncate leading-tight">
-                            {lanes > 1
-                              ? a.services?.name || p.deletedService
-                              : `${timeOnly(a.starts_at, TZ)} ${a.services?.name || p.deletedService}`}
+                            {c.by === "service"
+                              ? `${timeOnly(a.starts_at, TZ)} ${a.customer_name || p.noName}`
+                              : lanes > 1
+                                ? a.services?.name || p.deletedService
+                                : `${timeOnly(a.starts_at, TZ)} ${a.services?.name || p.deletedService}`}
                           </p>
                           {height > 34 && (
                             <p className="text-[10px] text-secondary truncate mt-0.5">
-                              {lanes > 1 ? timeOnly(a.starts_at, TZ) + " · " : ""}
-                              {a.customer_name || p.noName}
+                              {lanes > 1 && c.by !== "service" ? timeOnly(a.starts_at, TZ) + " · " : ""}
+                              {c.by === "service"
+                                ? (a.party_size > 1 ? p.partyOf.replace("{n}", a.party_size) : a.customer_contact || "")
+                                : a.customer_name || p.noName}
                             </p>
                           )}
                         </button>
@@ -502,10 +522,10 @@ export default function BookingsBoard({ language }) {
       </div>
 
       {selected && (
-        <AppointmentDialog appointment={selected} p={p} res={res} onClose={() => setSelected(null)} />
+        <AppointmentDialog appointment={selected} p={p} res={res} tz={TZ} onClose={() => setSelected(null)} />
       )}
       {adding && (
-        <NewBookingDialog p={p} res={res} day={day} services={services} resources={resources} onClose={() => setAdding(false)} />
+        <NewBookingDialog p={p} res={res} day={day} services={services} resources={resources} tz={TZ} onClose={() => setAdding(false)} />
       )}
     </div>
   );
@@ -513,8 +533,12 @@ export default function BookingsBoard({ language }) {
 
 /* ───────────────────────── appointment detail ────────────────────────── */
 
-function AppointmentDialog({ appointment: a, p, res, onClose }) {
+function AppointmentDialog({ appointment: a, p, res, tz, onClose }) {
   const update = useUpdateAppointment();
+  const remove = useDeleteAppointment();
+
+  // Nudge the clear-away button forward once the booking is behind you.
+  const finished = ["completed", "cancelled", "no_show"].includes(a.status);
 
   function setStatus(status) {
     update.mutate(
@@ -539,7 +563,7 @@ function AppointmentDialog({ appointment: a, p, res, onClose }) {
 
         <div className="px-6 pt-5 pb-3 space-y-3">
           <dl className="space-y-2 text-[13px]">
-            <Row label={p.fields.time} value={`${timeOnly(a.starts_at, TZ)} – ${timeOnly(a.ends_at, TZ)}`} />
+            <Row label={p.fields.time} value={`${timeOnly(a.starts_at, tz)} – ${timeOnly(a.ends_at, tz)}`} />
             <Row label={p.fields.customerName} value={a.customer_name || p.noName} icon={UserRoundIcon} />
             {a.customer_contact && <Row label={p.fields.customerContact} value={a.customer_contact} icon={PhoneIcon} />}
             {a.resources?.name && <Row label={p.fields.resources} value={`${a.resources.icon || ""} ${a.resources.name}`} />}
@@ -549,6 +573,7 @@ function AppointmentDialog({ appointment: a, p, res, onClose }) {
 
           <div>
             <p className="text-[12px] text-secondary mb-2">{p.fields.status}</p>
+            {finished && <Hint className="mb-2">{p.fields.finishedHint}</Hint>}
             <div className="flex flex-wrap gap-1.5">
               {Object.keys(STATUS).map((s) => (
                 <button
@@ -568,6 +593,26 @@ function AppointmentDialog({ appointment: a, p, res, onClose }) {
         </div>
 
         <DialogFooter>
+          <Button
+            type="button"
+            variant={finished ? "outline" : "ghost"}
+            className={cn("mr-auto", !finished && "text-muted")}
+            disabled={remove.isPending}
+            onClick={() => {
+              if (!confirm(p.fields.confirmRemove)) return;
+              remove.mutate(a.id, {
+                onSuccess: (r) => {
+                  if (r?.success === false) return showError(r.message);
+                  showSuccess(res.bookingRemoved);
+                  onClose();
+                },
+                onError: () => showError(res.bookingRemoveError),
+              });
+            }}
+          >
+            {remove.isPending ? <LoaderIcon className="size-4 animate-spin" /> : <Trash2Icon className="size-4" />}
+            {p.fields.remove}
+          </Button>
           <Button variant="ghost" onClick={onClose}>{p.fields.cancel}</Button>
         </DialogFooter>
       </DialogContent>
@@ -589,7 +634,7 @@ function Row({ label, value, icon: Icon }) {
 
 /* ─────────────────────────── new booking ─────────────────────────────── */
 
-function NewBookingDialog({ p, res, day, services, resources, onClose }) {
+function NewBookingDialog({ p, res, day, services, resources, tz, onClose }) {
   const [form, setForm] = useState({
     serviceId: services?.[0]?.id || "",
     date: day,
@@ -700,7 +745,7 @@ function NewBookingDialog({ p, res, day, services, resources, onClose }) {
                     )}
                     title={s.resource_name || ""}
                   >
-                    {timeOnly(s.slot_start, TZ)}
+                    {timeOnly(s.slot_start, tz)}
                   </button>
                 ))}
               </div>

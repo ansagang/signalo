@@ -6,7 +6,7 @@
  * The engine adapts these specs to whichever provider the persona uses.
  */
 
-const DEFAULT_TZ = "Asia/Almaty";
+import { DEFAULT_TZ } from "@/lib/timezone";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -136,7 +136,7 @@ export const toolSpecs = [
   {
     name: "check_availability",
     description:
-      "List free start times for a bookable service on one day. Always call this before offering a time — never invent availability. Returns shop-local times.",
+      "Free start times for a bookable service on one day. Always call before offering a time — never invent availability. The list is a set of tidy SUGGESTIONS, not the only minutes that exist: if the customer names a time that is not on it, call this again with `time` to find out whether that exact time can be taken. Returns shop-local times.",
     input_schema: {
       type: "object",
       properties: {
@@ -146,15 +146,20 @@ export const toolSpecs = [
           type: "integer",
           minimum: 1,
           description:
-            "How many people. Required for anything booked for a group — a table, a class, a tour. Leave out for a one-person appointment.",
+            "How many people are coming, in total. Always pass it: 1 for a single appointment, the real number for a table, class or tour. Ask the customer if you do not know yet.",
+        },
+        time: {
+          type: "string",
+          description:
+            "Optional HH:MM. Pass it when the customer named a time — it answers whether that exact time works, which is not the same as whether it is on the suggested list.",
         },
         resource_name: {
           type: "string",
           description:
-            "Only if the customer asked for a specific person, table or room by name.",
+            "Only if the customer asked for a specific person by name. Most bookings have nobody attached.",
         },
       },
-      required: ["service_id", "date"],
+      required: ["service_id", "date", "party_size"],
       additionalProperties: false,
     },
     async run(input, ctx) {
@@ -179,6 +184,68 @@ export const toolSpecs = [
         }
         resourceId = resource.id;
       }
+
+      // A named time is a different question from "what do you suggest".
+      if (input.time) {
+        if (!/^\d{1,2}:\d{2}$/.test(input.time)) {
+          return { ok: false, error: "time must be HH:MM." };
+        }
+        const hhmm = input.time.length === 4 ? `0${input.time}` : input.time;
+        const startsAt = localToInstant(input.date, hhmm, ctx.timezone).toISOString();
+        const party = Math.max(1, Number(input.party_size) || 1);
+
+        const { data: check, error: checkError } = await ctx.supabase.rpc("check_slot", {
+          p_user_id: ctx.userId,
+          p_service_id: input.service_id,
+          p_starts_at: startsAt,
+          p_resource_id: resourceId,
+          p_timezone: ctx.timezone || DEFAULT_TZ,
+          p_party: party,
+        });
+        if (checkError) return { ok: false, error: checkError.message };
+
+        const row = Array.isArray(check) ? check[0] : check;
+        if (row?.ok) {
+          return {
+            ok: true,
+            exact_time: hhmm,
+            available: true,
+            seats_left: row.seats_left,
+            message: `${hhmm} works. Confirm it back to the customer and book it — do not talk them into a different time.`,
+          };
+        }
+
+        const why = {
+          closed_that_day: "the business is closed that day",
+          outside_hours: "that is outside opening hours",
+          too_soon: "that is too soon to book",
+          not_a_start_time: "this one only starts at set times",
+          all_busy: "everything is taken at that moment",
+          person_busy: "that person is busy then",
+          no_seats_left: "there are not enough seats left then",
+          party_out_of_range: "that party size is out of range for this",
+          off_grid: "this one only starts at its scheduled times",
+        }[row?.reason] || "that time is not available";
+
+        return {
+          ok: true,
+          exact_time: hhmm,
+          available: false,
+          reason: row?.reason,
+          message: `${hhmm} is not possible — ${why}. Say so plainly, then offer the nearest times from a normal availability check.`,
+        };
+      }
+
+      // Whether the grid is a suggestion or a rule changes what we may tell
+      // the model to do with the list below.
+      const { data: svc } = await ctx.supabase
+        .from("services")
+        .select("slot_mode")
+        .eq("id", input.service_id)
+        .eq("user_id", ctx.userId)
+        .maybeSingle();
+      // Only "any" treats its grid as a suggestion.
+      const anyTime = svc?.slot_mode === "any";
 
       const { data, error } = await ctx.supabase.rpc("available_slots", {
         p_user_id: ctx.userId,
@@ -228,12 +295,18 @@ export const toolSpecs = [
         earliest: slots[0],
         latest: slots[slots.length - 1],
         total_free: slots.length,
+        exact_times_allowed: anyTime,
         slots: spread.map((t) => ({ time: t, available: byTime.get(t) })),
         message:
           `${slots.length} start times are free, from ${slots[0]} to ${slots[slots.length - 1]}. ` +
-          "These are the shop's own bookable start times — offer them exactly as given and never a time in between. " +
-          "The list is a sample across the day, so do not tell the customer a part of the day is unavailable. " +
-          "Offer two or three that suit what they asked for. Name the person, table or room only if the customer asked for a specific one.",
+          "The list below is a SAMPLE across the day, not everything that is free — never tell the customer a part of the day is unavailable. " +
+          (anyTime
+            ? "These are suggestions, not the only minutes that exist: any time between " +
+              `${slots[0]} and ${slots[slots.length - 1]} can be booked when there is room. ` +
+              "If the customer names a time — 19:00, 19:15, anything — do NOT push them onto a listed time. " +
+              "Call check_availability again with `time` set to what they asked for, and book it if it comes back available. "
+            : "This one only starts at the times listed, so offer them exactly as given. ") +
+          "Offer two or three that suit what they asked for. Name the person only if the customer asked for someone specific.",
       };
     },
   },
@@ -253,12 +326,13 @@ export const toolSpecs = [
         party_size: {
           type: "integer",
           minimum: 1,
-          description: "How many people. Must match what you passed to check_availability.",
+          description:
+            "How many people are coming, in total. Must match what you passed to check_availability. Never guess 1 for a group booking.",
         },
-        resource_name: { type: "string", description: "Only if the customer asked for a specific one." },
+        resource_name: { type: "string", description: "Only if the customer asked for a specific person by name." },
         note: { type: "string" },
       },
-      required: ["service_id", "date", "time", "customer_name", "customer_contact"],
+      required: ["service_id", "date", "time", "customer_name", "customer_contact", "party_size"],
       additionalProperties: false,
     },
     async run(input, ctx) {
@@ -299,10 +373,22 @@ export const toolSpecs = [
           return { ok: false, error: `This takes between ${min} and ${max} people. Ask the customer for a party size in range.` };
         }
         if ((error.message || "").includes("slot_taken")) {
+          const why = (error.message || "").split("slot_taken:")[1]?.split(/[^a-z_]/)[0];
+          const said = {
+            closed_that_day: "the business is closed that day",
+            outside_hours: "it falls outside opening hours",
+            too_soon: "it is too soon to book",
+            not_a_start_time: "this one only starts at set times",
+            all_busy: "everything is taken at that moment",
+            person_busy: "that person is busy then",
+            no_seats_left: "there are not enough seats left",
+            off_grid: "this one only starts on its scheduled times",
+          }[why];
           return {
             ok: false,
-            error:
-              "That time is not bookable — it was taken, or it is not one of the shop's start times. Call check_availability again and offer only what it returns.",
+            error: said
+              ? `Could not book that time — ${said}. Tell the customer plainly, then offer the nearest times from check_availability.`
+              : "That time is not bookable. Call check_availability again and offer only what it returns.",
           };
         }
         if ((error.message || "").includes("service_not_found")) {

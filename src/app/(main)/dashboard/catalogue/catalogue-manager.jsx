@@ -32,8 +32,8 @@ const emptyProduct = {
 
 export const emptyService = {
   name: "", description: "", category: "", price: 0, currency: "kzt",
-  duration_min: 60, buffer_min: 10, max_parallel: 1, active: true, image_url: null,
-  slot_mode: "grid", slot_step_min: 30, slot_times: [], lead_time_min: 0,
+  duration_min: 60, buffer_min: 10, capacity: 1, active: true, image_url: null,
+  slot_mode: "any", slot_step_min: 30, slot_times: [], lead_time_min: 0,
   booking_mode: "appointment", min_party: 1, max_party: 1,
 };
 
@@ -310,7 +310,9 @@ export function ServiceCard({ service, resources, assigned, p, res, onEdit }) {
   const slotLabel =
     service.slot_mode === "fixed"
       ? (service.slot_times || []).map((t) => String(t).slice(0, 5)).join(", ") || p.slots.noneSet
-      : p.slots.everyN.replace("{n}", service.slot_step_min);
+      : service.slot_mode === "any"
+        ? p.slots.anyShort
+        : p.slots.everyN.replace("{n}", service.slot_step_min);
 
   return (
     <div className="border border-border rounded-module bg-card overflow-hidden flex flex-col">
@@ -445,8 +447,9 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
 
     payload.duration_min = Number(payload.duration_min) || 60;
     payload.buffer_min = Number(payload.buffer_min) || 0;
-    payload.max_parallel = Number(payload.max_parallel) || 1;
-    payload.slot_step_min = Number(payload.slot_step_min) || 30;
+    payload.capacity = Math.max(1, Number(payload.capacity) || 1);
+    payload.slot_step_min =
+      payload.slot_mode === "any" ? 30 : Number(payload.slot_step_min) || 30;
     payload.lead_time_min = Number(payload.lead_time_min) || 0;
     payload.min_party = 1;
     payload.max_party = Math.max(1, Number(payload.max_party) || 1);
@@ -542,19 +545,34 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
             </>
           ) : (
             <>
-              <div className="border-b border-secondary-transparent pb-4">
-                <Field label={p.booking.maxParty}>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={form.max_party}
-                    onChange={(e) => set("max_party", e.target.value)}
-                    className="w-[130px]"
-                  />
-                </Field>
-                <Hint className="mt-2">
-                  {Number(form.max_party) > 1 ? p.booking.groupHint : p.booking.soloHint}
-                </Hint>
+              <div className="border-b border-secondary-transparent pb-4 space-y-4">
+                <div>
+                  <Field label={p.booking.capacity}>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.capacity}
+                      onChange={(e) => set("capacity", e.target.value)}
+                      className="w-[130px]"
+                    />
+                  </Field>
+                  <Hint className="mt-2">{p.booking.capacityHint}</Hint>
+                </div>
+
+                <div>
+                  <Field label={p.booking.maxParty}>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.max_party}
+                      onChange={(e) => set("max_party", e.target.value)}
+                      className="w-[130px]"
+                    />
+                  </Field>
+                  <Hint className="mt-2">
+                    {Number(form.max_party) > 1 ? p.booking.groupHint : p.booking.soloHint}
+                  </Hint>
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -577,6 +595,7 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
                   value={form.slot_mode}
                   onChange={(v) => set("slot_mode", v)}
                   options={[
+                    { value: "any", label: p.slots.any },
                     { value: "grid", label: p.slots.grid },
                     { value: "fixed", label: p.slots.fixed },
                   ]}
@@ -586,19 +605,21 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
                 {form.slot_mode === "grid" ? (
                   <Field label={p.slots.stepLabel}>
                     <NativeSelect value={form.slot_step_min} onChange={(e) => set("slot_step_min", e.target.value)}>
-                      {[15, 20, 30, 45, 60, 90, 120].map((n) => (
+                      {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((n) => (
                         <NativeSelectOption key={n} value={n}>
                           {p.slots.everyN.replace("{n}", n)}
                         </NativeSelectOption>
                       ))}
                     </NativeSelect>
                   </Field>
-                ) : (
+                ) : form.slot_mode === "fixed" ? (
                   <Field label={p.slots.timesLabel}>
                     <Input value={times} onChange={(e) => setTimes(e.target.value)} placeholder="11:00, 14:00, 17:00" />
                     <Hint>{p.slots.timesHint}</Hint>
                   </Field>
-                )}
+                ) : null}
+
+                <Hint className="mt-3">{p.slots.modeHints[form.slot_mode] || ""}</Hint>
               </div>
 
               <div className="border-t border-secondary-transparent pt-4">
@@ -630,8 +651,10 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
                     })}
                   </div>
                 )}
-                {!masters.length && resources?.length > 0 && (
-                  <Hint className="mt-2">{p.resourcesSection.noneSelected}</Hint>
+                {!masters.length && (
+                  <Hint className="mt-2">
+                    {p.resourcesSection.noneSelected.replace("{n}", form.capacity || 1)}
+                  </Hint>
                 )}
               </div>
             </>

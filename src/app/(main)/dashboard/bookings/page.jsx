@@ -1,6 +1,7 @@
 import { getUser } from "@/actions/auth";
 import { getLanguage } from "@/lib/get-language";
 import { PageHeader } from "@/components/ui/page";
+import { tzOf } from "@/lib/timezone";
 import BookingsBoard from "./bookings-board";
 
 export async function generateMetadata() {
@@ -22,7 +23,7 @@ export default async function BookingsPage() {
         title={language.app.pages.bookings.meta.title}
         description={language.app.pages.bookings.meta.description}
       />
-      <BookingsBoard language={language} />
+      <BookingsBoard language={language} timezone={tzOf(user)} />
     </div>
   );
 }

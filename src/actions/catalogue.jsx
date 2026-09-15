@@ -143,3 +143,14 @@ export async function deleteCatalogueImage(url) {
     if (error) throw error;
   });
 }
+
+/** The business's clock. Everything time-shaped is resolved against it. */
+export async function saveTimezone(timezone) {
+  return action(async (db, user) => {
+    const { error } = await db
+      .from("profiles")
+      .update({ timezone })
+      .eq("id", user.id);
+    if (error) throw error;
+  });
+}

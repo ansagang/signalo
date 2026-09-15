@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { createClient } from "@/lib/supabase/server";
 import { ensureConversation, runChat } from "@/lib/ai/engine";
+import { tzForUser } from "@/lib/timezone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +135,7 @@ export async function POST(request) {
           conversation,
           userMessage: message,
           channel: channelType,
+          timezone: await tzForUser(supabase, userId),
         })) {
           send(event);
         }

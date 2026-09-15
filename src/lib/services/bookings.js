@@ -5,7 +5,7 @@
  * assistant and the dashboard cannot disagree about what is free.
  */
 
-const TZ = "Asia/Almaty";
+import { DEFAULT_TZ } from "@/lib/timezone";
 
 export async function listAppointments(supabase, userId, { from, to, status, resourceId } = {}) {
   let query = supabase
@@ -38,10 +38,26 @@ export async function updateAppointment(supabase, userId, id, updates) {
 }
 
 /** Free start times, exactly as the assistant sees them. */
+/**
+ * Remove a booking from the calendar for good.
+ *
+ * A finished or cancelled booking already stops holding its slot — only
+ * 'booked' and 'confirmed' count against availability — so this is about
+ * clearing the view, not freeing capacity.
+ */
+export async function deleteAppointment(supabase, userId, id) {
+  const { error } = await supabase
+    .from("appointments")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+  if (error) throw error;
+}
+
 export async function availableSlots(
   supabase,
   userId,
-  { serviceId, date, resourceId, timezone = TZ, party = 1 },
+  { serviceId, date, resourceId, timezone = DEFAULT_TZ, party = 1 },
 ) {
   const { data, error } = await supabase.rpc("available_slots", {
     p_user_id: userId,
@@ -58,7 +74,7 @@ export async function availableSlots(
 export async function bookAppointment(
   supabase,
   userId,
-  { serviceId, startsAt, resourceId, conversationId, customerName, customerContact, note, timezone = TZ, party = 1 },
+  { serviceId, startsAt, resourceId, conversationId, customerName, customerContact, note, timezone = DEFAULT_TZ, party = 1 },
 ) {
   const { data, error } = await supabase.rpc("book_appointment", {
     p_user_id: userId,

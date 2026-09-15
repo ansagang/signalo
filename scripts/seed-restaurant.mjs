@@ -116,66 +116,65 @@ console.log("· hours: every day 12:00–23:00");
 
 const services = [
   { name: "Table reservation", category: "Dining", duration_min: 90, buffer_min: 15, price: 0,
-    max_party: 6, host: "Aisulu",
+    max_party: 6, capacity: 22, host: null,
     description: "A table held for your party for 90 minutes. Kitchen closes at 22:00." },
   { name: "Large party dinner", category: "Dining", duration_min: 150, buffer_min: 30, price: 0,
-    max_party: 14, host: "Aisulu",
+    max_party: 14, capacity: 3, host: null,
     description: "Seven to fourteen guests, seated together. Set menu agreed a day ahead." },
   { name: "Chef's tasting menu", category: "Experience", duration_min: 150, buffer_min: 30, price: 24000,
-    max_party: 8, host: "Yerlan",
+    max_party: 8, capacity: 8, host: "Yerlan", mode: "class", slots: "grid",
     description: "Seven courses of modern Kazakh cooking at the kitchen counter. Per guest. Allergies need a day's notice." },
   { name: "Wine tasting", category: "Experience", duration_min: 90, buffer_min: 15, price: 15000,
-    max_party: 10, host: "Timur",
+    max_party: 10, capacity: 10, host: "Timur", mode: "class", slots: "grid",
     description: "Six Georgian and Kazakh wines with snacks, led by our sommelier. Per guest. Thursdays and Fridays." },
   { name: "Private dining room", category: "Events", duration_min: 240, buffer_min: 30, price: 60000,
-    max_party: 16, host: "Aisulu",
+    max_party: 16, capacity: 1, host: null,
     description: "The upstairs room to yourselves for four hours. Room fee, food and drink charged on top." },
 ];
 
 for (const s of services) {
-  const { host, ...row } = s;
+  const { host, mode, slots, ...row } = s;
   const text = `${s.name} — ${s.description} — category: ${s.category} — ${s.duration_min} minutes — up to ${s.max_party} guests — price ${s.price} KZT`;
   const id = await upsert("services", "name", s.name, {
-    ...row, user_id: USER, currency: "kzt", max_parallel: 4, active: true,
-    slot_mode: "grid", slot_step_min: 30, lead_time_min: 60,
-    booking_mode: s.max_party > 1 ? "class" : "appointment",
+    ...row, user_id: USER, currency: "kzt", active: true,
+    // "any" suggests half-hours but takes the time the guest names; a sitting
+    // everyone joins together stays on its grid.
+    slot_mode: slots || "any", slot_step_min: 30, lead_time_min: 60,
+    // 'class' shares one sitting between guests; everything else takes a table.
+    booking_mode: mode || "appointment",
     min_party: 1, embedding: await embed(text),
   });
-  // Who runs it — the same link the salon uses for a master and a service.
+
+  // Only work a named person performs gets one attached.
   await rest(`service_resources?service_id=eq.${id}`, { method: "DELETE" });
-  await rest("service_resources", {
-    method: "POST", body: JSON.stringify({ service_id: id, resource_id: staff[host] }),
-  });
-  console.log(`· bookable: ${s.name} (up to ${s.max_party}, ${host})`);
+  if (host) {
+    await rest("service_resources", {
+      method: "POST", body: JSON.stringify({ service_id: id, resource_id: staff[host] }),
+    });
+  }
+  console.log(`· bookable: ${s.name} — up to ${s.max_party} guests, ${s.capacity} at once${host ? `, run by ${host}` : ""}`);
 }
 
 /* ── the tables, as stock ───────────────────────────────────────────── */
 
 const products = [
-  { name: "Window table (2 seats)", category: "Tables", stock: 4,
-    description: "Two-seat table along the window. Best light in the evening." },
-  { name: "Hall table (4 seats)", category: "Tables", stock: 8,
-    description: "Standard four-seat table in the main hall." },
-  { name: "Corner booth (6 seats)", category: "Tables", stock: 3,
-    description: "Upholstered booth in the corner, seats six comfortably." },
-  { name: "Long table (12 seats)", category: "Tables", stock: 1,
-    description: "The single long table down the middle of the hall." },
-  { name: "Terrace table (4 seats)", category: "Tables", stock: 6,
-    description: "Outside on the terrace. Weather permitting, April to October." },
+  // Tables are NOT here. A table is booked for a span of time, so it is a
+  // service with a capacity ("Table reservation", 22 at once). Products are
+  // things that leave the building.
   { name: "House wine — Saperavi", category: "Retail", stock: 24, price: 9000,
     description: "Dry red from Kakheti. Bottle to take home." },
   { name: "Sandyq spice set", category: "Retail", stock: 15, price: 6500,
     description: "Three jars: zira, sumac and our own lamb rub, in a wooden box." },
   { name: "Gift card 20,000 ₸", category: "Retail", stock: 30, price: 20000,
     description: "Spendable on anything, valid a year." },
-];
+]
 
 for (const pr of products) {
   const text = `${pr.name} — ${pr.description} — category: ${pr.category} — price ${pr.price || 0} KZT`;
   await upsert("products", "name", pr.name, {
     ...pr, user_id: USER, price: pr.price || 0, currency: "kzt",
     // Tables are put back every service; retail is restocked by hand.
-    initial_stock: pr.stock, low_stock_at: pr.category === "Tables" ? 1 : 5,
+    initial_stock: pr.stock, low_stock_at: 5,
     track_stock: true, active: true, embedding: await embed(text),
   });
   console.log(`· product: ${pr.name} ×${pr.stock}`);
@@ -275,20 +274,20 @@ const svcByName = Object.fromEntries(
 );
 
 const bookings = [
-  [0, "13:00", "Table reservation", "Aisulu", 2, "Aigerim", "+7 701 214 8890", "confirmed"],
-  [0, "14:30", "Table reservation", "Aisulu", 4, "Nurlan", "+7 705 331 0042", "confirmed"],
+  [0, "13:00", "Table reservation", null, 2, "Aigerim", "+7 701 214 8890", "confirmed"],
+  [0, "14:30", "Table reservation", null, 4, "Nurlan", "+7 705 331 0042", "confirmed"],
   [0, "18:00", "Chef's tasting menu", "Yerlan", 6, "Dmitri", "+7 707 884 1201", "booked"],
-  [0, "19:00", "Table reservation", "Aisulu", 3, "Saltanat", "+7 700 552 7714", "booked"],
-  [0, "20:30", "Large party dinner", "Aisulu", 11, "Kanat (corporate)", "+7 727 315 9900", "booked"],
-  [1, "13:30", "Table reservation", "Aisulu", 2, "Madina", "+7 701 990 2213", "booked"],
+  [0, "19:00", "Table reservation", null, 3, "Saltanat", "+7 700 552 7714", "booked"],
+  [0, "20:30", "Large party dinner", null, 11, "Kanat (corporate)", "+7 727 315 9900", "booked"],
+  [1, "13:30", "Table reservation", null, 2, "Madina", "+7 701 990 2213", "booked"],
   [1, "19:00", "Wine tasting", "Timur", 8, "Wine club", "+7 702 118 4455", "confirmed"],
-  [1, "20:00", "Table reservation", "Aisulu", 5, "Askar", "+7 708 447 3321", "booked"],
-  [2, "18:30", "Private dining room", "Aisulu", 14, "Halyk Bank", "+7 727 258 1100", "confirmed"],
-  [2, "19:30", "Table reservation", "Aisulu", 2, "Zhanna", "+7 705 663 8812", "booked"],
+  [1, "20:00", "Table reservation", null, 5, "Askar", "+7 708 447 3321", "booked"],
+  [2, "18:30", "Private dining room", null, 14, "Halyk Bank", "+7 727 258 1100", "confirmed"],
+  [2, "19:30", "Table reservation", null, 2, "Zhanna", "+7 705 663 8812", "booked"],
   [3, "19:00", "Chef's tasting menu", "Yerlan", 4, "Olga", "+7 701 774 5590", "booked"],
-  [-1, "19:00", "Table reservation", "Aisulu", 4, "Bekzat", "+7 707 220 6631", "completed"],
+  [-1, "19:00", "Table reservation", null, 4, "Bekzat", "+7 707 220 6631", "completed"],
   [-1, "20:00", "Wine tasting", "Timur", 6, "Tasting group", "+7 702 889 1145", "completed"],
-  [-2, "18:00", "Table reservation", "Aisulu", 2, "Arman", "+7 700 341 7782", "no_show"],
+  [-2, "18:00", "Table reservation", null, 2, "Arman", "+7 700 341 7782", "no_show"],
 ];
 
 let made = 0;
@@ -305,7 +304,7 @@ for (const [d, time, svcName, host, party, who, phone, status] of bookings) {
   await rest("appointments", {
     method: "POST",
     body: JSON.stringify({
-      user_id: USER, service_id: svc.id, resource_id: staff[host],
+      user_id: USER, service_id: svc.id, resource_id: host ? staff[host] : null,
       customer_name: who, customer_contact: phone,
       starts_at, ends_at, status, party_size: party,
       // Per-guest experiences bill by head; a table booking itself is free.
@@ -317,14 +316,3 @@ for (const [d, time, svcName, host, party, who, phone, status] of bookings) {
 }
 console.log(`· bookings: ${made} added across the week`);
 
-/* ── a few tables already taken, so "Reset availability" has a job ──── */
-
-const tables = await rest(`products?select=id,name,stock,initial_stock&user_id=eq.${USER}&category=eq.Tables`);
-for (const t of tables) {
-  const taken = { "Window table (2 seats)": 2, "Hall table (4 seats)": 5, "Corner booth (6 seats)": 2, "Long table (12 seats)": 1 }[t.name];
-  if (!taken) continue;
-  await rest(`products?id=eq.${t.id}`, {
-    method: "PATCH", body: JSON.stringify({ stock: Math.max(0, t.initial_stock - taken) }),
-  });
-}
-console.log("· tables: some seated, so availability can be reset");

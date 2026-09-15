@@ -1,3 +1,4 @@
+import { DEFAULT_TZ } from "@/lib/timezone";
 /**
  * Presentation helpers shared across the dashboard.
  */
@@ -52,7 +53,7 @@ export function money(amount, currency) {
 }
 
 /** "Today 14:30" / "Tue 16 Sep" — never a bare 9/14/2026. */
-export function friendlyDate(iso, locale = "en-GB", timeZone = "Asia/Almaty") {
+export function friendlyDate(iso, locale = "en-GB", timeZone = DEFAULT_TZ) {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
@@ -85,7 +86,7 @@ export function relativeTime(iso, t) {
   return `${Math.round(hours / 24)}${t?.daysShort || "d"}`;
 }
 
-export function timeOnly(iso, timeZone = "Asia/Almaty") {
+export function timeOnly(iso, timeZone = DEFAULT_TZ) {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone,
     hour: "2-digit",
