@@ -26,9 +26,9 @@ const buttonVariants = cva(
           "bg-accent text-[var(--color-primary)] hover:opacity-90 tracking-widest uppercase",
       },
       size: {
-        default: "h-9 px-4 text-sm",
-        sm: "h-9 px-4 text-xs",
-        lg: "h-11 px-8",
+        default: "h-10 px-4 text-sm",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-12 px-8",
         icon: "size-10",
         "icon-sm": "size-8",
       },

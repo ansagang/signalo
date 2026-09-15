@@ -35,7 +35,7 @@
 
   var DEFAULTS = {
     accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
-    launcherLabel: "", title: "Chat", subtitle: "", avatar: "",
+    launcherLabel: "", title: "Chat", subtitle: "", avatar: "", avatarShape: null, avatarColor: null,
     autoOpen: false, autoOpenDelay: 8, theme: "dark", greetingBubble: "",
   };
 
@@ -73,6 +73,36 @@
       "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif", "color:#000",
     ].join(";");
 
+    // The same shapes the dashboard offers, as inline paths — the launcher
+    // has no icon library and must not depend on one.
+    var SHAPES = {
+      bot: '<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 3v5M8 14h.01M16 14h.01"/>',
+      sparkles: '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',
+      message: '<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 0 1 17 0z"/>',
+      headset: '<path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/>',
+      bag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',
+      scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',
+      heart: '<path d="M19 14c1.5-1.5 3-3.3 3-5.5A5.5 5.5 0 0 0 12 5.6 5.5 5.5 0 0 0 2 8.5c0 2.2 1.5 4 3 5.5l7 7z"/>',
+      star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3L7 14.2l-5-4.9 6.9-1z"/>',
+      zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+      coffee: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/>',
+      gem: '<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 3 8 9l4 12 4-12z"/>',
+      flower: '<circle cx="12" cy="12" r="3"/><path d="M12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM15 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0zM3 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0z"/>',
+      wrench: '<path d="M14.7 6.3a4 4 0 0 0 5 5L21 10v4l-9 9-4-4 9-9z"/>',
+      package: '<path d="m7.5 4.3 9 5.2M21 16V8l-9-5-9 5v8l9 5z"/><path d="m3 8 9 5 9-5M12 13v9"/>',
+      smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
+      crown: '<path d="m2 18 2-11 5 4 3-6 3 6 5-4-2 11z"/><path d="M4 21h16"/>',
+      leaf: '<path d="M11 20A7 7 0 0 1 4 13c0-6 5-10 16-10 0 10-4 15-9 15z"/><path d="M4 21c2-6 5-9 9-11"/>',
+      rocket: '<path d="M5 13c-1.5 1.5-2 5-2 5s3.5-.5 5-2M13 5c4-4 8-3 8-3s1 4-3 8l-4 4-5-5z"/><circle cx="15" cy="9" r="1.5"/>',
+    };
+
+    function shapeSvg(name, px) {
+      var body = SHAPES[name] || SHAPES.message;
+      return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none" ' +
+        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        body + "</svg>";
+    }
+
     var ICON_CHAT =
       '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
     var ICON_CLOSE =
@@ -80,9 +110,11 @@
 
     function paintLauncher() {
       if (open) { launcher.innerHTML = ICON_CLOSE; return; }
-      var avatar = config.avatar
-        ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
-        : ICON_CHAT;
+      var avatar = config.avatarShape
+        ? shapeSvg(config.avatarShape, 24)
+        : config.avatar
+          ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
+          : ICON_CHAT;
       launcher.innerHTML = avatar + (config.launcherLabel
         ? '<span style="white-space:nowrap">' + config.launcherLabel + "</span>" : "");
     }

@@ -16,7 +16,7 @@
   --color-border-hover:          #3a3a42;
   --color-card:                  #131317;
   --color-hover:                 #1d1d23;
-  --color-muted:                 #74747e;
+  --color-muted:                 #8b8b96;
 
   /* Geist Mono is loaded in the layout but `font-mono` resolved to the
      system stack, so monospace labels rendered in a different typeface

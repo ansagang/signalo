@@ -25,7 +25,7 @@ export default function ImageDrop({ value, onChange, label, hint, className }) {
       form.append("file", file);
       const res = await uploadCatalogueImage(form);
       if (res?.success === false) showError(res.message);
-      else onChange(res.url);
+      else onChange(res.data.url);
     } catch (err) {
       showError(err?.message || "Upload failed");
     } finally {

@@ -36,7 +36,7 @@ export function Section({ title, description, icon: Icon, children, actions, cla
             {title}
           </h2>
           {description && (
-            <p className="text-[12px] text-muted mt-1 leading-relaxed max-w-[70ch]">{description}</p>
+            <p className="text-[12px] text-secondary mt-1 leading-relaxed max-w-[70ch]">{description}</p>
           )}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
@@ -66,7 +66,7 @@ export function EmptyState({ icon: Icon, title, description, action }) {
       {Icon && <Icon className="size-6 text-muted mx-auto mb-3" />}
       <p className="text-[14px] text-fg mb-1.5">{title}</p>
       {description && (
-        <p className="text-[12px] text-muted max-w-[46ch] mx-auto leading-relaxed">{description}</p>
+        <p className="text-[12px] text-secondary max-w-[46ch] mx-auto leading-relaxed">{description}</p>
       )}
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
@@ -138,7 +138,7 @@ export function Toggle({ checked, onChange, label, hint, disabled }) {
       />
       <span className="min-w-0">
         <span className="block text-[13px] text-fg leading-tight">{label}</span>
-        {hint && <span className="block text-[11px] text-muted mt-0.5 leading-relaxed">{hint}</span>}
+        {hint && <span className="block text-[12px] text-secondary mt-1 leading-relaxed">{hint}</span>}
       </span>
     </label>
   );
@@ -146,6 +146,6 @@ export function Toggle({ checked, onChange, label, hint, disabled }) {
 
 export function Hint({ children, className }) {
   return (
-    <p className={cn("text-[11px] text-muted leading-relaxed", className)}>{children}</p>
+    <p className={cn("text-[12px] text-secondary leading-relaxed", className)}>{children}</p>
   );
 }

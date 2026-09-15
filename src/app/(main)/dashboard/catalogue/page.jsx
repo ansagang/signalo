@@ -17,7 +17,7 @@ export default async function CataloguePage() {
   const language = await getLanguage({ user });
 
   return (
-    <div className="px-7 py-9 max-w-6xl">
+    <div className="px-7 py-9">
       <PageHeader
         title={language.app.pages.catalogue.meta.title}
         description={language.app.pages.catalogue.meta.description}

@@ -4,7 +4,7 @@ import {
   getServices, createService, updateService, deleteService,
   getStaff, createStaff, updateStaff, deleteStaff,
   getBusinessHours, saveBusinessHours,
-  getServiceStaffMap, setServiceStaff,
+  getServiceStaffMap, setServiceStaff, setStaffServices,
   getStaffHours, saveStaffHours,
 } from "@/actions/catalogue";
 
@@ -55,7 +55,7 @@ export function useStockMovements(productId) {
 
 /* services */
 export function useServices(filters) {
-  return useQuery({ queryKey: ["services", filters], queryFn: () => getServices(filters) });
+  return useQuery({ queryKey: ["services", filters], queryFn: () => getServices(filters), staleTime: 60_000 });
 }
 export const useCreateService = crud("services", createService);
 export const useUpdateService = crudWithId("services", updateService);
@@ -63,7 +63,7 @@ export const useDeleteService = crud("services", deleteService);
 
 /* staff */
 export function useStaff() {
-  return useQuery({ queryKey: ["staff"], queryFn: getStaff });
+  return useQuery({ queryKey: ["staff"], queryFn: getStaff, staleTime: 5 * 60_000 });
 }
 export const useCreateStaff = crud("staff", createStaff);
 export const useUpdateStaff = crudWithId("staff", updateStaff);
@@ -71,12 +71,20 @@ export const useDeleteStaff = crud("staff", deleteStaff);
 
 /* service ↔ staff */
 export function useServiceStaffMap() {
-  return useQuery({ queryKey: ["service-staff"], queryFn: getServiceStaffMap });
+  return useQuery({ queryKey: ["service-staff"], queryFn: getServiceStaffMap, staleTime: 5 * 60_000 });
 }
 export function useSetServiceStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ serviceId, staffIds }) => setServiceStaff(serviceId, staffIds),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-staff"] }),
+  });
+}
+
+export function useSetStaffServices() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ staffId, serviceIds }) => setStaffServices(staffId, serviceIds),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["service-staff"] }),
   });
 }
@@ -99,6 +107,6 @@ export function useSaveStaffHours() {
 
 /* hours */
 export function useBusinessHours() {
-  return useQuery({ queryKey: ["business-hours"], queryFn: getBusinessHours });
+  return useQuery({ queryKey: ["business-hours"], queryFn: getBusinessHours, staleTime: 5 * 60_000 });
 }
 export const useSaveBusinessHours = crud("business-hours", saveBusinessHours);

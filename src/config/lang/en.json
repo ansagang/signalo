@@ -220,14 +220,17 @@
             "label": "Status",
             "active": "Active",
             "inactive": "Inactive"
-          }
+          },
+          "avatar": "Avatar",
+          "traits": "Anything else about its manner"
         },
         "modals": {
           "addTitle": "Add Persona",
           "updateTitle": "Update Persona",
           "add": "Add Persona",
           "update": "Update Persona",
-          "cancel": "Cancel"
+          "cancel": "Cancel",
+          "addHelp": "Start from a voice — you can change everything afterwards."
         },
         "entries": {
           "one": "{count} persona",
@@ -256,7 +259,65 @@
           "apologize": "Apologize & end"
         },
         "playground": {
-          "placeholder": "Test a message…"
+          "placeholder": "Test a message…",
+          "title": "Try it",
+          "help": "Real answers from your real catalogue. Saved under Conversations as a playground chat."
+        },
+        "saved": "Saved",
+        "delete": "Delete",
+        "empty": {
+          "title": "No personas yet",
+          "subtitle": "A persona is the character your assistant takes on — its voice, its rules, and what it is told about your business."
+        },
+        "lengths": {
+          "short": "Short",
+          "medium": "Medium",
+          "long": "Detailed"
+        },
+        "toneHints": {
+          "friendly": "Warm and casual. Short sentences, the odd emoji. Good for retail and salons.",
+          "professional": "Formal and precise. No slang, full sentences. Good for finance, legal, B2B.",
+          "persuasive": "Confident and consultative. Leads with the benefit and always names a next step.",
+          "technical": "Patient and methodical. Numbered steps, exact figures, no marketing language.",
+          "custom": "No preset voice — it follows only the instructions you write below."
+        },
+        "sections": {
+          "identity": {
+            "title": "Who it is",
+            "help": "The name and face customers see in the chat window.",
+            "nameHint": "Customers see this. A first name works better than \"Support Bot\"."
+          },
+          "voice": {
+            "title": "How it talks",
+            "help": "Tone, language, and the first thing it says.",
+            "languageHint": "Auto-detect replies in whatever language the customer writes in.",
+            "greetingHint": "Shown before the customer types anything. Leave empty for no greeting."
+          },
+          "brief": {
+            "title": "What it should know",
+            "help": "Your business in plain words. This is the single biggest lever on reply quality.",
+            "promptPlaceholder": "You work for … We are at … Delivery works like … Payment is …",
+            "promptHint": "Facts about your business the catalogue does not already cover: address, delivery, payment, anything it should always mention.",
+            "traitsPlaceholder": "Never pushy, always names a concrete next step"
+          },
+          "limits": {
+            "title": "What it must not do",
+            "help": "Where the assistant stops and a person takes over.",
+            "blockedHint": "Comma separated. It will decline these in one sentence and steer back.",
+            "escalationHint": "Comma separated. Any of these hands the chat to you straight away.",
+            "fallbackHint": "What it does when the catalogue has no answer."
+          },
+          "engine": {
+            "title": "Engine",
+            "help": "Which model answers, and how much it writes.",
+            "modelHint": "Claude Opus 5 is the default and the most capable.",
+            "lengthLabel": "Reply length",
+            "lengthHint": "Short keeps chats snappy. Detailed suits technical questions."
+          }
+        },
+        "confirmDelete": {
+          "title": "Delete this persona?",
+          "body": "Channels using it will stop answering until you pick another. Past conversations are kept."
         }
       },
       "conversations": {
@@ -386,7 +447,31 @@
           "autoOpenHint": "Opens the chat for first-time visitors after a delay.",
           "autoOpenDelay": "After (seconds)",
           "preview": "Preview",
-          "save": "Save appearance"
+          "save": "Save appearance",
+          "theme": "Window theme",
+          "dark": "Dark",
+          "light": "Light",
+          "themeHint": "Sets the panel background, text and bubble colours. Adjust any of them below.",
+          "panelBg": "Window background",
+          "panelText": "Window text",
+          "panelSurface": "Bubbles & input",
+          "panelSurfaceHint": "Used for the assistant's bubbles and the message box.",
+          "sampleBot": "Hi! How can I help?",
+          "sampleUser": "Do you have this?",
+          "presets": "Pick a look",
+          "presetsHint": "Sets the colours, background and bubbles in one go. Fine-tune anything below.",
+          "lookNames": {
+            "midnight": "Midnight",
+            "ocean": "Ocean",
+            "plum": "Plum",
+            "snow": "Snow",
+            "sand": "Sand",
+            "mono": "Mono"
+          },
+          "placement": "Where it sits",
+          "wording": "What it says",
+          "fineTune": "Exact colours",
+          "fineTuneHint": "Override any individual colour. Picking a look above resets these."
         },
         "connected": "Receiving",
         "notConnected": "Not connected"
@@ -556,8 +641,12 @@
           "customerName": "Customer",
           "customerContact": "Phone or handle",
           "book": "Book it",
-          "cancel": "Cancel"
-        }
+          "cancel": "Cancel",
+          "note": "Note",
+          "status": "Status"
+        },
+        "unassigned": "Unassigned",
+        "allBookings": "All bookings"
       },
       "business": {
         "meta": {
@@ -570,7 +659,10 @@
           "open": "Open",
           "closed": "Closed",
           "closedAllDay": "Closed all day",
-          "save": "Save hours"
+          "save": "Save hours",
+          "copyToAll": "Copy these times to every open day",
+          "copyHint": "Hover a row to copy its times to the rest of the week.",
+          "closedAllWeek": "Closed all week"
         },
         "team": {
           "title": "Your team",
@@ -586,7 +678,16 @@
           "shifts": "Shifts",
           "saveShifts": "Save shifts",
           "shiftsHelp": "When this person works. Appointments are only offered inside their shift and inside the shop's hours.",
-          "emptyHint": "Add the people customers can book with. Without anyone, bookings are not tied to a person."
+          "emptyHint": "Add the people customers can book with. Without anyone, bookings are not tied to a person.",
+          "noServices": "Not assigned to any service yet",
+          "canDo": "Services this person can do",
+          "canDoHelp": "The assistant only offers this master for the services ticked here.",
+          "noServicesYet": "Add services in Catalogue first.",
+          "shiftsTitle": "Working hours"
+        },
+        "explain": {
+          "title": "These settings decide when the assistant can book",
+          "body": "A time is offered only when the shop is open, the master is on shift, and that master is assigned to the service. Assignments live in Catalogue → Services."
         }
       }
     },

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
   getAppointments,
   updateAppointment,
@@ -10,8 +10,12 @@ export function useAppointments(range) {
   return useQuery({
     queryKey: ["appointments", range],
     queryFn: () => getAppointments(range),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 30_000,
+    // Hold the previous day on screen while the next one loads, so moving
+    // through the week does not blank and reflow the whole timetable.
+    placeholderData: keepPreviousData,
+    // Background polling re-rendered the grid every 30s for no visible gain.
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -20,6 +24,8 @@ export function useAvailability({ serviceId, date, staffId }) {
     queryKey: ["availability", serviceId, date, staffId],
     queryFn: () => getAvailability({ serviceId, date, staffId }),
     enabled: Boolean(serviceId && date),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
   });
 }
 

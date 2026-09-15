@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import ChatPanel from "@/components/chat/chat-panel";
+import PersonaAvatar from "@/components/ui/persona-avatar";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -45,22 +46,35 @@ export default async function PublicChatPage({ params }) {
 
   const config = channel.config || {};
   const title = config.title || channel.name;
-  const accent = /^#[0-9a-f]{3,8}$/i.test(config.accent || "") ? config.accent : null;
+
+  const THEMES = {
+    dark:  { panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22", panelBorder: "#2a2a32" },
+    light: { panelBg: "#ffffff", panelText: "#14141a", panelSurface: "#f1f1f4", panelBorder: "#e3e3e9" },
+  };
+  const theme = THEMES[config.theme] || THEMES.dark;
+  const hex = (v) => (/^#[0-9a-f]{3,8}$/i.test(v || "") ? v : null);
+
+  // Drive the design tokens the panel is already built on, so bubbles, input,
+  // borders and buttons all follow the seller's colours without each needing
+  // its own override.
+  const palette = {
+    "--color-accent": hex(config.accent) || "#00d26a",
+    "--color-bg": hex(config.panelBg) || theme.panelBg,
+    "--color-fg": hex(config.panelText) || theme.panelText,
+    "--color-secondary-transparent2": hex(config.panelSurface) || theme.panelSurface,
+    "--color-secondary-transparent": theme.panelBorder,
+    "--color-primary": hex(config.panelBg) || theme.panelBg,
+  };
 
   return (
     // The accent chosen in the dashboard drives the whole panel, not just the
     // launcher — send button, customer bubbles and the header dot.
-    <main
-      className="h-dvh flex flex-col bg-bg"
-      style={accent ? { "--color-accent": accent } : undefined}
-    >
+    <main className="h-dvh flex flex-col bg-bg" style={palette}>
       <header className="flex items-center gap-3 px-4 py-3 border-b border-secondary-transparent shrink-0">
-        <div className="size-9 rounded-button bg-secondary-transparent2 grid place-items-center text-[17px]">
-          {persona.icon || "🤖"}
-        </div>
+        <PersonaAvatar icon={persona.icon} size={36} />
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-fg truncate">{title}</p>
-          <p className="text-[11px] text-muted flex items-center gap-1.5">
+          <p className="text-[11px] opacity-60 flex items-center gap-1.5">
             <span className="size-1.5 rounded-full bg-accent animate-pulse" />
             {persona.name}
           </p>
@@ -71,7 +85,7 @@ export default async function PublicChatPage({ params }) {
         publicKey={key}
         greeting={persona.greeting}
         personaName={persona.name}
-        personaIcon={persona.icon || "🤖"}
+        personaIcon={persona.icon}
         className="flex-1 min-h-0"
       />
     </main>

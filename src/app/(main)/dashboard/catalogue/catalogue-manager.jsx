@@ -400,7 +400,7 @@ function EditorDialog({ kind, row, staff, assigned, p, res, language, onClose })
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={save} className="px-6 pb-2 space-y-5 max-h-[62vh] overflow-y-auto scrollbar-none">
+        <form onSubmit={save} className="px-6 pt-5 pb-3 space-y-5 max-h-[62vh] overflow-y-auto scrollbar-none">
           <ImageDrop
             value={form.image_url}
             onChange={(url) => set("image_url", url)}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import PersonaAvatar from "@/components/ui/persona-avatar";
 import { SendIcon, LoaderIcon, CheckCircle2Icon, UserRoundIcon } from "lucide-react";
 
 const TOOL_LABELS = {
@@ -222,7 +223,7 @@ export default function ChatPanel({
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-3 scrollbar-none">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center gap-2 py-10">
-            <div className="text-3xl">{personaIcon}</div>
+            <PersonaAvatar icon={personaIcon} size={44} />
             <p className="text-sm text-muted max-w-[240px]">
               Ask {personaName} anything a customer might ask.
             </p>

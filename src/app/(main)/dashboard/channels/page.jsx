@@ -20,7 +20,7 @@ export default async function ChannelsPage() {
   const origin = process.env.URL?.replace(/\/$/, "") || "";
 
   return (
-    <div className="px-7 py-9 max-w-4xl">
+    <div className="px-7 py-9">
       <PageHeader
         title={language.app.pages.channels.meta.title}
         description={language.app.pages.channels.meta.description}

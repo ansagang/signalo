@@ -17,7 +17,7 @@ export default async function BusinessPage() {
   const language = await getLanguage({ user });
 
   return (
-    <div className="px-7 py-9 max-w-3xl">
+    <div className="px-7 py-9">
       <PageHeader
         title={language.app.pages.business.meta.title}
         description={language.app.pages.business.meta.description}
