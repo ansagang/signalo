@@ -190,7 +190,7 @@
       if (bubble && open) { bubble.remove(); dismissedGreeting = true; }
       if (open && byVisitor !== false) {
         try {
-          window.localStorage.setItem("signalo:" + key + ":opened", "1");
+          window.localStorage.setItem("signalo:" + key + ":opened:v2", "1");
         } catch (e) { /* private mode */ }
       }
     }
@@ -205,7 +205,7 @@
       layout();
 
       var seen = false;
-      try { seen = window.localStorage.getItem("signalo:" + key + ":opened") === "1"; } catch (e) {}
+      try { seen = window.localStorage.getItem("signalo:" + key + ":opened:v2") === "1"; } catch (e) {}
 
       if (bubble && !seen) {
         setTimeout(function () {

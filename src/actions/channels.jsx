@@ -345,6 +345,15 @@ export async function verifyEmail(id) {
   if (known.status !== "verified") {
     return { success: false, message: `${domain} is ${known.status} in Resend — finish verification first.` };
   }
+  if (known.capabilities && known.capabilities.receiving !== "enabled") {
+    return {
+      success: false,
+      message: `${domain} can send but not receive. In Resend open the domain, enable Receiving and add the MX record it gives you — until then no customer mail reaches this channel.`,
+    };
+  }
+  if (known.capabilities && known.capabilities.sending !== "enabled") {
+    return { success: false, message: `${domain} cannot send yet — enable Sending in Resend.` };
+  }
 
-  return { success: true, message: `Ready to send from ${channel.config.address}` };
+  return { success: true, message: `Ready to send and receive on ${channel.config.address}` };
 }
