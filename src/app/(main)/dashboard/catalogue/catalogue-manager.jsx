@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useAdjustStock,
+  useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useAdjustStock, useResetStock,
   useServices, useCreateService, useUpdateService, useDeleteService,
   useResources, useServiceResourceMap, useSetServiceResources,
 } from "@/hooks/use-catalogue";
@@ -21,13 +21,13 @@ import { Segmented, SearchInput, EmptyState, Loading, Toggle, Hint } from "@/com
 import ImageDrop from "@/components/ui/image-drop";
 import { metadata as appMeta } from "@/config/metadata";
 import {
-  BoxIcon, ClockIcon, ImageIcon, LoaderIcon, MinusIcon, PackageIcon, PencilIcon,
+  BoxIcon, ClockIcon, RotateCcwIcon, ImageIcon, LoaderIcon, MinusIcon, PackageIcon, PencilIcon,
   PlusIcon, SearchIcon, SparklesIcon, Trash2Icon, TriangleAlertIcon, UsersIcon,
 } from "lucide-react";
 
 const emptyProduct = {
   name: "", description: "", category: "", price: 0, currency: "kzt",
-  stock: 0, low_stock_at: 3, track_stock: true, active: true, image_url: null,
+  stock: 0, initial_stock: null, low_stock_at: 3, track_stock: true, active: true, image_url: null,
 };
 
 export const emptyService = {
@@ -46,6 +46,8 @@ export default function CatalogueManager({ language }) {
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 400);
   const [editing, setEditing] = useState(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetStock = useResetStock();
 
   const filters = debounced ? { search: debounced } : undefined;
   const { data: products, isLoading: loadingProducts } = useProducts(filters);
@@ -69,6 +71,18 @@ export default function CatalogueManager({ language }) {
   const current = TABS[tab];
   const startNew = () => setEditing({ kind: tab, row: { ...current.blank } });
 
+  // Only tracked products that have drifted from their baseline will move.
+  const resettable = useMemo(
+    () => (products || []).filter(
+      (x) => x.track_stock && x.initial_stock != null && x.stock !== x.initial_stock,
+    ).length,
+    [products],
+  );
+
+  // Shown whenever stock is tracked at all, not only once something has
+  // drifted — a button that appears only when needed is a button nobody finds.
+  const tracksStock = (products || []).some((x) => x.track_stock);
+
   return (
     <div>
       <div className="flex items-center gap-3 flex-wrap mb-5">
@@ -87,6 +101,19 @@ export default function CatalogueManager({ language }) {
           icon={SearchIcon}
           className="flex-1 min-w-[180px]"
         />
+        {tab === "products" && tracksStock && (
+          <Button
+            variant="outline"
+            title={resettable ? undefined : p.stock.resetNothing}
+            onClick={() => setConfirmReset(true)}
+            disabled={resetStock.isPending || resettable === 0}
+          >
+            {resetStock.isPending
+              ? <LoaderIcon className="size-4 animate-spin" />
+              : <RotateCcwIcon className="size-4" />}
+            {p.stock.reset}
+          </Button>
+        )}
         <Button onClick={startNew}>
           <PlusIcon className="size-4" />
           {current.add}
@@ -125,6 +152,41 @@ export default function CatalogueManager({ language }) {
             ),
           )}
         </div>
+      )}
+
+      {confirmReset && (
+        <Dialog open onOpenChange={(v) => !v && setConfirmReset(false)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{p.stock.resetTitle}</DialogTitle>
+            </DialogHeader>
+            <div className="px-6 pt-5 pb-3">
+              <p className="text-[13px] text-secondary leading-relaxed">
+                {p.stock.resetBody.replace("{n}", resettable)}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmReset(false)}>
+                {p.confirmDelete?.cancel || "Cancel"}
+              </Button>
+              <Button
+                disabled={resetStock.isPending}
+                onClick={() =>
+                  resetStock.mutate(null, {
+                    onSuccess: (r) => {
+                      if (r?.success === false) return showError(r.message);
+                      showSuccess(res.stockReset.replace("{n}", r?.data ?? resettable));
+                      setConfirmReset(false);
+                    },
+                    onError: () => showError(res.stockResetError),
+                  })
+                }
+              >
+                {resetStock.isPending ? <LoaderIcon className="size-4 animate-spin" /> : p.stock.resetConfirm}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {editing && (
@@ -203,6 +265,9 @@ function ProductCard({ product, p, res, onEdit }) {
               <span className={cn("text-[12px] font-mono tabular-nums min-w-[3ch] text-center",
                 out ? "text-error" : low ? "text-warning" : "text-fg")}>
                 {product.stock}
+                {product.initial_stock != null && product.initial_stock !== product.stock && (
+                  <span className="text-muted">/{product.initial_stock}</span>
+                )}
               </span>
               <button onClick={() => bump(1)} disabled={adjustStock.isPending}
                 aria-label={p.stock.increase}
@@ -366,6 +431,12 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
     if (isProduct) {
       payload.stock = Number(payload.stock) || 0;
       payload.low_stock_at = Number(payload.low_stock_at) || 0;
+      // Blank means "however many there are now", so a shop that never thinks
+      // about resets still gets a sane baseline.
+      payload.initial_stock =
+        payload.initial_stock === "" || payload.initial_stock == null
+          ? payload.stock
+          : Math.max(0, Number(payload.initial_stock) || 0);
       const done = (r) => (r?.success === false ? showError(r.message) : finish());
       if (row.id) updateProduct.mutate({ id: row.id, updates: payload }, { onSuccess: done, onError: fail });
       else createProduct.mutate(payload, { onSuccess: done, onError: fail });
@@ -449,14 +520,26 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
           </div>
 
           {isProduct ? (
-            <div className="flex gap-3">
-              <Field label={p.fields.stock} className="flex-1">
-                <Input type="number" min="0" value={form.stock} onChange={(e) => set("stock", e.target.value)} />
-              </Field>
-              <Field label={p.fields.lowStockAt} className="flex-1">
-                <Input type="number" min="0" value={form.low_stock_at} onChange={(e) => set("low_stock_at", e.target.value)} />
-              </Field>
-            </div>
+            <>
+              <div className="flex gap-3">
+                <Field label={p.fields.stock} className="flex-1">
+                  <Input type="number" min="0" value={form.stock} onChange={(e) => set("stock", e.target.value)} />
+                </Field>
+                <Field label={p.fields.initialStock} className="flex-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    value={form.initial_stock ?? ""}
+                    placeholder={String(form.stock ?? 0)}
+                    onChange={(e) => set("initial_stock", e.target.value)}
+                  />
+                </Field>
+                <Field label={p.fields.lowStockAt} className="flex-1">
+                  <Input type="number" min="0" value={form.low_stock_at} onChange={(e) => set("low_stock_at", e.target.value)} />
+                </Field>
+              </div>
+              <Hint>{p.fields.initialStockHint}</Hint>
+            </>
           ) : (
             <>
               <div className="border-b border-secondary-transparent pb-4">

@@ -1,9 +1,12 @@
 /**
- * Seeds a seating-based business (restaurant) — tables as resources, a
- * "book a table" service in `seating` mode, a host persona and its channel.
- * Demonstrates that the booking model is not salon-specific.
+ * Seeds a complete restaurant account you can log into and click around.
  *
- *   node scripts/seed-restaurant.mjs <user-email>
+ * Written for the current model, where the old "places" idea is gone:
+ *   · a bookable sitting is a SERVICE with a max party and a host assigned
+ *   · the tables themselves are PRODUCTS whose stock is how many exist,
+ *     so an order takes one and "Reset availability" frees them all again
+ *
+ *   node scripts/seed-restaurant.mjs [email] [password]
  */
 import fs from "fs";
 import path from "path";
@@ -16,6 +19,7 @@ const env = Object.fromEntries(
 );
 const U = env.NEXT_PUBLIC_SUPABASE_URL, K = env.SUPABASE_SERVICE_ROLE_KEY;
 const H = { apikey: K, Authorization: `Bearer ${K}`, "Content-Type": "application/json" };
+const REP = { Prefer: "return=representation" };
 
 const rest = async (p, init = {}) => {
   const r = await fetch(`${U}/rest/v1/${p}`, { ...init, headers: { ...H, ...(init.headers || {}) } });
@@ -34,83 +38,293 @@ async function embed(text) {
   return (await r.json()).data[0].embedding;
 }
 
-const email = process.argv[2] || "beta@signalo.app";
-const [profile] = await rest(`profiles?select=id&email=eq.${encodeURIComponent(email)}`);
-if (!profile) throw new Error(`No profile for ${email}`);
-const USER = profile.id;
-console.log(`seeding restaurant for ${email}`);
+const EMAIL = process.argv[2] || "resto@signalo.app";
+const PASSWORD = process.argv[3] || "SignaloResto2026!";
 
-/* ── tables ── */
-const tables = [
-  { name: "Window 1", capacity: 2 }, { name: "Window 2", capacity: 2 },
-  { name: "Centre 3", capacity: 4 }, { name: "Centre 4", capacity: 4 },
-  { name: "Corner 5", capacity: 6 }, { name: "Long table", capacity: 10 },
-];
-for (const t of tables) {
-  const [found] = await rest(`resources?select=id&user_id=eq.${USER}&name=eq.${encodeURIComponent(t.name)}`);
-  const row = { ...t, user_id: USER, kind: "table", icon: "🍽️", active: true };
-  if (found) await rest(`resources?id=eq.${found.id}`, { method: "PATCH", body: JSON.stringify(row) });
-  else await rest("resources", { method: "POST", body: JSON.stringify(row) });
-  console.log(`· table: ${t.name} (${t.capacity} seats)`);
-}
+/* ── the account itself ─────────────────────────────────────────────── */
 
-/* ── the bookable ── */
-const service = {
-  user_id: USER, name: "Table reservation", category: "Dining",
-  description: "A table held for your party for 90 minutes. Kitchen closes at 22:00.",
-  duration_min: 90, buffer_min: 15, price: 0, currency: "kzt",
-  booking_mode: "seating", min_party: 1, max_party: 10,
-  slot_mode: "grid", slot_step_min: 30, lead_time_min: 60, active: true,
-};
-const text = `${service.name} — ${service.description} — seating for 1 to 10 people — 90 minutes`;
-const [existing] = await rest(`resources?select=id&user_id=eq.${USER}&name=eq.x`); // no-op probe
-const [svcFound] = await rest(`services?select=id&user_id=eq.${USER}&name=eq.${encodeURIComponent(service.name)}`);
-let serviceId;
-if (svcFound) {
-  serviceId = svcFound.id;
-  await rest(`services?id=eq.${serviceId}`, { method: "PATCH", body: JSON.stringify({ ...service, embedding: await embed(text) }) });
-} else {
-  const [s] = await rest("services", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ ...service, embedding: await embed(text) }) });
-  serviceId = s.id;
-}
-console.log("· service: Table reservation (seating, 1–10)");
+async function ensureUser() {
+  const [existing] = await rest(`profiles?select=id&email=eq.${encodeURIComponent(EMAIL)}`);
+  if (existing) { console.log(`· account: ${EMAIL} (already exists)`); return existing.id; }
 
-/* ── every table can serve it ── */
-const allTables = await rest(`resources?select=id&user_id=eq.${USER}&kind=eq.table`);
-await rest(`service_resources?service_id=eq.${serviceId}`, { method: "DELETE" });
-for (const t of allTables) {
-  await rest("service_resources", { method: "POST", body: JSON.stringify({ service_id: serviceId, resource_id: t.id }) });
-}
-console.log(`· linked ${allTables.length} tables`);
-
-/* ── persona + channel ── */
-const persona = {
-  user_id: USER, preset_id: "restaurant", name: "Dana", tone: "friendly", language: "auto",
-  model: "claude",
-  greeting: "Hi! This is Dana at Saltanat. Would you like to book a table?",
-  prompt: "You are the host at Saltanat, a restaurant on Dostyk 12 in Almaty. Tables are held for 90 minutes. Kitchen closes at 22:00. We do not take deposits.",
-  traits: "Warm, efficient, always confirms the party size before offering times.",
-  temperature: 0.7, max_tokens: 1024, fallback_behavior: "escalate",
-  escalation_triggers: "complaint, allergy, large group over 10, private event",
-  is_active: false,
-};
-const [pFound] = await rest(`personas?select=id&user_id=eq.${USER}&name=eq.Dana`);
-let personaId;
-if (pFound) { personaId = pFound.id; await rest(`personas?id=eq.${personaId}`, { method: "PATCH", body: JSON.stringify(persona) }); }
-else { const [p] = await rest("personas", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(persona) }); personaId = p.id; }
-
-const [cFound] = await rest(`channels?select=id,public_key&user_id=eq.${USER}&name=eq.${encodeURIComponent("Saltanat widget")}`);
-let key;
-if (cFound) { key = cFound.public_key; await rest(`channels?id=eq.${cFound.id}`, { method: "PATCH", body: JSON.stringify({ persona_id: personaId, is_active: true }) }); }
-else {
-  const [c] = await rest("channels", {
-    method: "POST", headers: { Prefer: "return=representation" },
+  const r = await fetch(`${U}/auth/v1/admin/users`, {
+    method: "POST", headers: H,
     body: JSON.stringify({
-      user_id: USER, persona_id: personaId, type: "web", name: "Saltanat widget",
+      email: EMAIL, password: PASSWORD, email_confirm: true,
+      user_metadata: { full_name: "Sandyq Restaurant" },
+    }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error(`create user → ${r.status} ${JSON.stringify(body)}`);
+  const id = body.id;
+
+  // A profile row may or may not be created by a trigger; make sure of it.
+  const [p] = await rest(`profiles?select=id&id=eq.${id}`);
+  if (!p) {
+    await rest("profiles", {
+      method: "POST",
+      body: JSON.stringify({ id, email: EMAIL, full_name: "Sandyq Restaurant", lang: "en", role: "user" }),
+    });
+  } else {
+    await rest(`profiles?id=eq.${id}`, {
+      method: "PATCH", body: JSON.stringify({ full_name: "Sandyq Restaurant", email: EMAIL }),
+    });
+  }
+  console.log(`· account created: ${EMAIL} / ${PASSWORD}`);
+  return id;
+}
+
+const USER = await ensureUser();
+
+/** Insert, or update the row that already has this name. */
+async function upsert(table, matchCol, value, row) {
+  const [found] = await rest(`${table}?select=id&user_id=eq.${USER}&${matchCol}=eq.${encodeURIComponent(value)}`);
+  if (found) {
+    await rest(`${table}?id=eq.${found.id}`, { method: "PATCH", body: JSON.stringify(row) });
+    return found.id;
+  }
+  const [created] = await rest(table, { method: "POST", headers: REP, body: JSON.stringify(row) });
+  return created.id;
+}
+
+/* ── the people guests are booked with ──────────────────────────────── */
+
+const team = [
+  { name: "Aisulu", role_title: "Host", icon: "🌸" },
+  { name: "Timur", role_title: "Head waiter & sommelier", icon: "🍷" },
+  { name: "Yerlan", role_title: "Chef", icon: "👨‍🍳" },
+];
+const staff = {};
+for (const m of team) {
+  staff[m.name] = await upsert("resources", "name", m.name, {
+    ...m, user_id: USER, kind: "person", capacity: 1, active: true,
+  });
+  console.log(`· team: ${m.name} — ${m.role_title}`);
+}
+
+/* ── hours: every day, noon to 23:00 ────────────────────────────────── */
+
+for (let wd = 0; wd <= 6; wd++) {
+  await rest("business_hours?on_conflict=user_id,weekday", {
+    method: "POST", headers: { Prefer: "resolution=merge-duplicates" },
+    body: JSON.stringify({ user_id: USER, weekday: wd, opens: "12:00", closes: "23:00", closed: false }),
+  });
+}
+console.log("· hours: every day 12:00–23:00");
+
+/* ── what a guest can book ──────────────────────────────────────────── */
+
+const services = [
+  { name: "Table reservation", category: "Dining", duration_min: 90, buffer_min: 15, price: 0,
+    max_party: 6, host: "Aisulu",
+    description: "A table held for your party for 90 minutes. Kitchen closes at 22:00." },
+  { name: "Large party dinner", category: "Dining", duration_min: 150, buffer_min: 30, price: 0,
+    max_party: 14, host: "Aisulu",
+    description: "Seven to fourteen guests, seated together. Set menu agreed a day ahead." },
+  { name: "Chef's tasting menu", category: "Experience", duration_min: 150, buffer_min: 30, price: 24000,
+    max_party: 8, host: "Yerlan",
+    description: "Seven courses of modern Kazakh cooking at the kitchen counter. Per guest. Allergies need a day's notice." },
+  { name: "Wine tasting", category: "Experience", duration_min: 90, buffer_min: 15, price: 15000,
+    max_party: 10, host: "Timur",
+    description: "Six Georgian and Kazakh wines with snacks, led by our sommelier. Per guest. Thursdays and Fridays." },
+  { name: "Private dining room", category: "Events", duration_min: 240, buffer_min: 30, price: 60000,
+    max_party: 16, host: "Aisulu",
+    description: "The upstairs room to yourselves for four hours. Room fee, food and drink charged on top." },
+];
+
+for (const s of services) {
+  const { host, ...row } = s;
+  const text = `${s.name} — ${s.description} — category: ${s.category} — ${s.duration_min} minutes — up to ${s.max_party} guests — price ${s.price} KZT`;
+  const id = await upsert("services", "name", s.name, {
+    ...row, user_id: USER, currency: "kzt", max_parallel: 4, active: true,
+    slot_mode: "grid", slot_step_min: 30, lead_time_min: 60,
+    booking_mode: s.max_party > 1 ? "class" : "appointment",
+    min_party: 1, embedding: await embed(text),
+  });
+  // Who runs it — the same link the salon uses for a master and a service.
+  await rest(`service_resources?service_id=eq.${id}`, { method: "DELETE" });
+  await rest("service_resources", {
+    method: "POST", body: JSON.stringify({ service_id: id, resource_id: staff[host] }),
+  });
+  console.log(`· bookable: ${s.name} (up to ${s.max_party}, ${host})`);
+}
+
+/* ── the tables, as stock ───────────────────────────────────────────── */
+
+const products = [
+  { name: "Window table (2 seats)", category: "Tables", stock: 4,
+    description: "Two-seat table along the window. Best light in the evening." },
+  { name: "Hall table (4 seats)", category: "Tables", stock: 8,
+    description: "Standard four-seat table in the main hall." },
+  { name: "Corner booth (6 seats)", category: "Tables", stock: 3,
+    description: "Upholstered booth in the corner, seats six comfortably." },
+  { name: "Long table (12 seats)", category: "Tables", stock: 1,
+    description: "The single long table down the middle of the hall." },
+  { name: "Terrace table (4 seats)", category: "Tables", stock: 6,
+    description: "Outside on the terrace. Weather permitting, April to October." },
+  { name: "House wine — Saperavi", category: "Retail", stock: 24, price: 9000,
+    description: "Dry red from Kakheti. Bottle to take home." },
+  { name: "Sandyq spice set", category: "Retail", stock: 15, price: 6500,
+    description: "Three jars: zira, sumac and our own lamb rub, in a wooden box." },
+  { name: "Gift card 20,000 ₸", category: "Retail", stock: 30, price: 20000,
+    description: "Spendable on anything, valid a year." },
+];
+
+for (const pr of products) {
+  const text = `${pr.name} — ${pr.description} — category: ${pr.category} — price ${pr.price || 0} KZT`;
+  await upsert("products", "name", pr.name, {
+    ...pr, user_id: USER, price: pr.price || 0, currency: "kzt",
+    // Tables are put back every service; retail is restocked by hand.
+    initial_stock: pr.stock, low_stock_at: pr.category === "Tables" ? 1 : 5,
+    track_stock: true, active: true, embedding: await embed(text),
+  });
+  console.log(`· product: ${pr.name} ×${pr.stock}`);
+}
+
+/* ── what the assistant needs to know ───────────────────────────────── */
+
+const entries = [
+  { type: "faq", title: "Where are you and where do I park?",
+    content: "Sandyq is at Dostyk 132, Almaty, on the corner with Zholdasbekov. Free parking in the courtyard behind the building, entrance from Zholdasbekov. Ten minutes on foot from Abay metro.",
+    keywords: "address, where, parking, metro, adres, parkovka, how to get", priority: 10, metadata: { category: "Visiting" } },
+  { type: "policy", title: "Holding, cancelling and late arrivals",
+    content: "We hold a table for 15 minutes past the booking time, then release it. Cancel or move free of charge up to 3 hours before. Large parties of 7 or more and the private room need 24 hours' notice, otherwise we charge 5,000 KZT per guest.",
+    keywords: "cancel, late, hold, no show, otmena, opozdanie, bronirovanie", priority: 10, metadata: {} },
+  { type: "faq", title: "Do you cater for allergies, halal or vegetarians?",
+    content: "All our meat is halal. There are four vegetarian mains and two vegan ones on the standard menu. Tell us about allergies when booking — for the tasting menu we need a day's notice to change courses.",
+    keywords: "halal, allergy, vegetarian, vegan, gluten, allergia, veg", priority: 9, metadata: { category: "Menu" } },
+  { type: "faq", title: "Can I come with children?",
+    content: "Yes. We have six highchairs and a children's menu at 2,500 KZT. The terrace is the easiest place with a pram.",
+    keywords: "children, kids, highchair, baby, deti, pram", priority: 7, metadata: { category: "Visiting" } },
+  { type: "faq", title: "How do I pay?",
+    content: "Cash, card or Kaspi at the restaurant. Corporate events and the private room can be invoiced — ask for Aisulu. We never take card details over chat.",
+    keywords: "pay, payment, kaspi, card, invoice, oplata, schet", priority: 9, metadata: { category: "Payment" } },
+  { type: "faq", title: "Is there live music or a dress code?",
+    content: "Live dombra and jazz on Friday and Saturday from 20:00. No dress code, though most guests dress smart-casual in the evening.",
+    keywords: "music, live, dress code, friday, saturday, muzyka", priority: 6, metadata: { category: "Visiting" } },
+];
+
+for (const e of entries) {
+  const text = [e.title, e.content, `Keywords: ${e.keywords}`, `Type: ${e.type}`].join(" — ");
+  await upsert("knowledge_entries", "title", e.title, {
+    ...e, user_id: USER, persona_id: null, active: true, embedding: await embed(text),
+  });
+  console.log(`· ${e.type}: ${e.title}`);
+}
+
+/* ── the assistant, and where guests meet it ────────────────────────── */
+
+const personaId = await upsert("personas", "name", "Dana", {
+  user_id: USER, preset_id: "restaurant", name: "Dana", tone: "friendly", language: "auto",
+  model: "claude", icon: "🍽️",
+  greeting: "Сәлеметсіз бе! Dana here from Sandyq. A table, or something else?",
+  prompt:
+    "You are the host at Sandyq, a modern Kazakh restaurant at Dostyk 132 in Almaty. Open every day 12:00–23:00; the kitchen closes at 22:00. " +
+    "Guests book a sitting: a normal table reservation takes up to 6, a large party dinner up to 14, and there is a chef's tasting menu, a wine tasting and a private room. " +
+    "Always ask how many guests are coming before you offer times, because it decides what you can offer. " +
+    "Quote prices per guest for the tasting menu and wine tasting. Never invent a dish that is not in the catalogue.",
+  traits: "Warm and quick. Confirms the party size, the day and the time back to the guest before booking anything.",
+  temperature: 0.7, max_tokens: 1024, fallback_behavior: "escalate",
+  blocked_topics: "detailed nutritional or medical advice",
+  escalation_triggers: "complaint, refund, allergic reaction, food poisoning, manager, corporate invoice",
+  is_active: true,
+});
+console.log("· persona: Dana");
+
+const [chan] = await rest(`channels?select=id,public_key&user_id=eq.${USER}&name=eq.${encodeURIComponent("Sandyq widget")}`);
+let key;
+if (chan) {
+  key = chan.public_key;
+  await rest(`channels?id=eq.${chan.id}`, { method: "PATCH", body: JSON.stringify({ persona_id: personaId, is_active: true }) });
+} else {
+  const [c] = await rest("channels", {
+    method: "POST", headers: REP,
+    body: JSON.stringify({
+      user_id: USER, persona_id: personaId, type: "web", name: "Sandyq widget",
       public_key: `sg_live_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
-      config: { title: "Saltanat", accent: "#c2410c", theme: "dark", avatarShape: "coffee" },
+      config: {
+        title: "Sandyq", accent: "#c2410c", theme: "dark", avatarShape: "utensils",
+        greetingBubble: "Book a table?", autoOpen: false, autoOpenDelay: 8,
+      },
     }),
   });
   key = c.public_key;
 }
-console.log(`\npersona_id : ${personaId}\npublic_key : ${key}`);
+console.log("· channel: Sandyq widget");
+
+console.log(`\nlogin      : ${EMAIL} / ${PASSWORD}`);
+console.log(`persona_id : ${personaId}`);
+console.log(`public_key : ${key}`);
+
+/* ── a week of bookings, so the timetable has something in it ───────── */
+
+const TZ_OFFSET = "+05:00";                 // Asia/Almaty
+const dayISO = (addDays) => {
+  const d = new Date();
+  d.setDate(d.getDate() + addDays);
+  return d.toISOString().slice(0, 10);
+};
+const at = (addDays, hhmm, minutes) => {
+  const start = new Date(`${dayISO(addDays)}T${hhmm}:00${TZ_OFFSET}`);
+  const end = new Date(start.getTime() + minutes * 60000);
+  return { starts_at: start.toISOString(), ends_at: end.toISOString() };
+};
+
+const svcByName = Object.fromEntries(
+  (await rest(`services?select=id,name,duration_min,price&user_id=eq.${USER}`)).map((s) => [s.name, s]),
+);
+
+const bookings = [
+  [0, "13:00", "Table reservation", "Aisulu", 2, "Aigerim", "+7 701 214 8890", "confirmed"],
+  [0, "14:30", "Table reservation", "Aisulu", 4, "Nurlan", "+7 705 331 0042", "confirmed"],
+  [0, "18:00", "Chef's tasting menu", "Yerlan", 6, "Dmitri", "+7 707 884 1201", "booked"],
+  [0, "19:00", "Table reservation", "Aisulu", 3, "Saltanat", "+7 700 552 7714", "booked"],
+  [0, "20:30", "Large party dinner", "Aisulu", 11, "Kanat (corporate)", "+7 727 315 9900", "booked"],
+  [1, "13:30", "Table reservation", "Aisulu", 2, "Madina", "+7 701 990 2213", "booked"],
+  [1, "19:00", "Wine tasting", "Timur", 8, "Wine club", "+7 702 118 4455", "confirmed"],
+  [1, "20:00", "Table reservation", "Aisulu", 5, "Askar", "+7 708 447 3321", "booked"],
+  [2, "18:30", "Private dining room", "Aisulu", 14, "Halyk Bank", "+7 727 258 1100", "confirmed"],
+  [2, "19:30", "Table reservation", "Aisulu", 2, "Zhanna", "+7 705 663 8812", "booked"],
+  [3, "19:00", "Chef's tasting menu", "Yerlan", 4, "Olga", "+7 701 774 5590", "booked"],
+  [-1, "19:00", "Table reservation", "Aisulu", 4, "Bekzat", "+7 707 220 6631", "completed"],
+  [-1, "20:00", "Wine tasting", "Timur", 6, "Tasting group", "+7 702 889 1145", "completed"],
+  [-2, "18:00", "Table reservation", "Aisulu", 2, "Arman", "+7 700 341 7782", "no_show"],
+];
+
+let made = 0;
+for (const [d, time, svcName, host, party, who, phone, status] of bookings) {
+  const svc = svcByName[svcName];
+  if (!svc) continue;
+  const { starts_at, ends_at } = at(d, time, svc.duration_min);
+
+  const [dupe] = await rest(
+    `appointments?select=id&user_id=eq.${USER}&starts_at=eq.${encodeURIComponent(starts_at)}&customer_name=eq.${encodeURIComponent(who)}`,
+  );
+  if (dupe) continue;
+
+  await rest("appointments", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: USER, service_id: svc.id, resource_id: staff[host],
+      customer_name: who, customer_contact: phone,
+      starts_at, ends_at, status, party_size: party,
+      // Per-guest experiences bill by head; a table booking itself is free.
+      price: Number(svc.price) * (Number(svc.price) > 0 ? party : 0),
+      currency: "kzt",
+    }),
+  });
+  made++;
+}
+console.log(`· bookings: ${made} added across the week`);
+
+/* ── a few tables already taken, so "Reset availability" has a job ──── */
+
+const tables = await rest(`products?select=id,name,stock,initial_stock&user_id=eq.${USER}&category=eq.Tables`);
+for (const t of tables) {
+  const taken = { "Window table (2 seats)": 2, "Hall table (4 seats)": 5, "Corner booth (6 seats)": 2, "Long table (12 seats)": 1 }[t.name];
+  if (!taken) continue;
+  await rest(`products?id=eq.${t.id}`, {
+    method: "PATCH", body: JSON.stringify({ stock: Math.max(0, t.initial_stock - taken) }),
+  });
+}
+console.log("· tables: some seated, so availability can be reset");

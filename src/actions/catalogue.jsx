@@ -26,6 +26,10 @@ export async function adjustStock(input) {
   return action((db, user) => catalogue.adjustStock(db, user.id, input));
 }
 
+export async function resetStock(productId = null) {
+  return action((db, user) => catalogue.resetStock(db, user.id, productId));
+}
+
 export async function getStockMovements(productId) {
   return query((db, user) => catalogue.listStockMovements(db, user.id, productId), []);
 }

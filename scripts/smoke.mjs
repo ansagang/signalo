@@ -29,6 +29,7 @@ await ctx.addCookies([{
 }]);
 
 const PAGES = [
+  '/',                       // the public landing page
   '/dashboard', '/dashboard/conversations', '/dashboard/catalogue',
   '/dashboard/bookings', '/dashboard/knowledge-base', '/dashboard/personas',
   '/dashboard/channels', '/dashboard/business', '/dashboard/account',

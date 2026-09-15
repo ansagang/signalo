@@ -119,6 +119,21 @@ export async function adjustStock(supabase, userId, { productId, delta, reason =
   return next;
 }
 
+/**
+ * Put stock back to each product's initial quantity.
+ *
+ * The whole reset is one statement so a shop resetting twenty tables cannot
+ * end up half done. Returns how many products actually moved.
+ */
+export async function resetStock(supabase, userId, productId = null) {
+  const { data, error } = await supabase.rpc("reset_stock", {
+    p_user_id: userId,
+    p_product_id: productId,
+  });
+  if (error) throw error;
+  return data ?? 0;
+}
+
 export async function listStockMovements(supabase, userId, productId) {
   const { data, error } = await supabase
     .from("stock_movements")

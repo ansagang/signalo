@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  getProducts, createProduct, updateProduct, deleteProduct, adjustStock, getStockMovements,
+  getProducts, createProduct, updateProduct, deleteProduct, adjustStock, resetStock, getStockMovements,
   getServices, createService, updateService, deleteService,
   getResources, createResource, updateResource, deleteResource,
   getBusinessHours, saveBusinessHours,
@@ -39,6 +39,17 @@ export function useAdjustStock() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: adjustStock,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock-movements"] });
+    },
+  });
+}
+
+export function useResetStock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (productId = null) => resetStock(productId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["stock-movements"] });

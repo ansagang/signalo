@@ -567,7 +567,12 @@
           "decrease": "Remove one",
           "low": "Low stock",
           "out": "Out of stock",
-          "untracked": "Stock not tracked"
+          "untracked": "Stock not tracked",
+          "reset": "Reset availability",
+          "resetTitle": "Reset availability?",
+          "resetBody": "This puts {n} product(s) back to their initial quantity — the tables free again, the shelf refilled. Every change is recorded in the stock history.",
+          "resetConfirm": "Reset",
+          "resetNothing": "Everything is already at its starting quantity"
         },
         "empty": {
           "products": {
@@ -605,7 +610,9 @@
           "trackStockHint": "Reduce on each order",
           "image": "Photo",
           "imageHint": "shown to customers in chat",
-          "leadTime": "Notice (min)"
+          "leadTime": "Notice (min)",
+          "initialStock": "Starts from",
+          "initialStockHint": "What a reset returns this to. For a bookable table, how many of them you have. Leave blank to use the current quantity."
         },
         "anyMaster": "Anything available",
         "slots": {
@@ -740,6 +747,167 @@
           "title": "These settings decide when the assistant can book",
           "body": "A time is offered only when you are open, the resource is available, it is assigned to the service, and it is big enough for the party. Assignments live in Catalogue → Services."
         }
+      },
+      "landing": {
+        "meta": {
+          "title": "Signalo — the assistant that answers, sells and books",
+          "description": "One AI assistant across your website, Telegram, WhatsApp and email. It answers customers, takes orders against real stock and books real times — and every change is written down.",
+          "keywords": [
+            "ai assistant",
+            "chatbot",
+            "booking",
+            "telegram bot",
+            "whatsapp business",
+            "crm",
+            "kazakhstan"
+          ]
+        },
+        "nav": {
+          "features": "What it does",
+          "channels": "Channels",
+          "how": "How it works",
+          "faq": "Questions",
+          "login": "Log in",
+          "start": "Get started"
+        },
+        "hero": {
+          "badge": "Answers · Sells · Books",
+          "title": "Your best salesperson,",
+          "titleAccent": "awake at 2am.",
+          "subtitle": "Signalo answers customers on your site, Telegram, WhatsApp and email — then finishes the job. It takes the order against real stock, books a real free slot, and writes down every change.",
+          "cta": "Start free",
+          "ctaSecondary": "Try it on this page",
+          "note": "No card. Connect a channel in minutes."
+        },
+        "proof": {
+          "replies": "Replies in seconds",
+          "repliesBody": "While the customer is still interested.",
+          "languages": "Answers in their language",
+          "languagesBody": "Kazakh, Russian and English, picked automatically.",
+          "handoff": "Steps aside for you",
+          "handoffBody": "A complaint or a refund goes straight to a human."
+        },
+        "demo": {
+          "title": "There is a real one in the corner of this page.",
+          "subtitle": "It is a restaurant's assistant, wired to a real menu, real tables and a real calendar. Ask it for a table for six on Friday and watch it check before it answers.",
+          "hint": "Try: \"a table for 6 on Friday evening\"",
+          "open": "Open the assistant"
+        },
+        "features": {
+          "title": "A chatbot answers. This one finishes.",
+          "subtitle": "Most assistants can talk about your business. Signalo is allowed to act on it — inside the limits you set.",
+          "items": [
+            {
+              "title": "It sells what you actually have",
+              "body": "Every order is checked against stock and refused when the shelf is empty. No apologising to a customer who already paid."
+            },
+            {
+              "title": "It books times that are really free",
+              "body": "Availability comes from your opening hours, who is working, how long the service takes and how many people fit. Not a guess."
+            },
+            {
+              "title": "It knows your business",
+              "body": "Prices, policies, parking, what is halal, when the kitchen closes. If the answer is not there, it says so instead of inventing one."
+            },
+            {
+              "title": "Everything is accountable",
+              "body": "Each sale and each booking leaves a record. Stock and the ledger never quietly disagree."
+            }
+          ]
+        },
+        "channels": {
+          "title": "One assistant. Every place they message you.",
+          "subtitle": "The same catalogue, the same calendar, the same answers — wherever the customer starts.",
+          "items": [
+            {
+              "name": "Website widget",
+              "body": "A button in the corner, in your colours. One line of code."
+            },
+            {
+              "name": "Telegram",
+              "body": "Your own bot, replying with photos and prices."
+            },
+            {
+              "name": "WhatsApp",
+              "body": "Your Business number, answered the moment it rings."
+            },
+            {
+              "name": "Email",
+              "body": "Your support inbox, answered and threaded properly."
+            }
+          ]
+        },
+        "how": {
+          "title": "Live by this afternoon.",
+          "steps": [
+            {
+              "title": "Put your business in",
+              "body": "Products with quantities, services with durations, your opening hours and who works when."
+            },
+            {
+              "title": "Say how it should sound",
+              "body": "Pick a tone, write the greeting, choose what it must never handle alone."
+            },
+            {
+              "title": "Connect where customers are",
+              "body": "Paste one line on your site, or connect Telegram, WhatsApp and email. That is the whole setup."
+            }
+          ]
+        },
+        "who": {
+          "title": "Built for businesses that book and sell.",
+          "items": [
+            {
+              "name": "Salons and clinics",
+              "body": "Masters, shifts, services of different lengths — and no double bookings."
+            },
+            {
+              "name": "Restaurants and venues",
+              "body": "Tables by party size, tastings with seats, a private room for fourteen."
+            },
+            {
+              "name": "Shops",
+              "body": "A catalogue with real quantities, orders that can never oversell."
+            }
+          ]
+        },
+        "faq": {
+          "title": "Fair questions.",
+          "items": [
+            {
+              "q": "Will it invent things about my business?",
+              "a": "It answers from your catalogue and knowledge base. When something is not there it says it does not know and offers a human — that behaviour is the default, not an add-on."
+            },
+            {
+              "q": "What happens when it is out of its depth?",
+              "a": "You list the things it must never handle alone — refunds, complaints, anything you choose. It stops, hands over, and stays quiet in that conversation while you take it."
+            },
+            {
+              "q": "Which languages does it speak?",
+              "a": "Kazakh, Russian and English, matched to whatever the customer wrote in. The dashboard is in all three too."
+            },
+            {
+              "q": "Do I need a developer?",
+              "a": "For the website widget it is one line of HTML. Telegram connects itself once you paste a bot token. WhatsApp and email take a few fields from your provider."
+            },
+            {
+              "q": "Where does my data live?",
+              "a": "In your own account. Conversations, orders and bookings belong to you, and each seller's data is separated at the database level."
+            }
+          ]
+        },
+        "cta": {
+          "title": "Stop losing the customers who message at midnight.",
+          "subtitle": "Set it up once. Let it answer, sell and book while you get on with the work.",
+          "button": "Get started",
+          "secondary": "Log in"
+        },
+        "footer": {
+          "tagline": "The assistant that answers, sells and books.",
+          "product": "Product",
+          "company": "Company",
+          "rights": "All rights reserved."
+        }
       }
     },
     "buttons": {},
@@ -821,7 +989,9 @@
       "resourceCreateError": "Could not add",
       "resourceUpdateError": "Could not update",
       "resourceDeleted": "Removed",
-      "resourceDeleteError": "Could not remove"
+      "resourceDeleteError": "Could not remove",
+      "stockReset": "Availability reset for {n} product(s)",
+      "stockResetError": "Could not reset availability"
     },
     "global": {
       "currencies": {
