@@ -90,15 +90,42 @@ export function parseInbound(payload) {
     "";
 
   const text = stripQuoted(body);
-  if (!fromAddress || !text) return null;
+  const emailId = d.email_id || null;
+  if (!fromAddress) return null;
+  if (!text && !emailId) return null;
 
   return {
     fromAddress,
     fromName,
     subject: subject || "(no subject)",
     text,
+    emailId,
     messageId: d.message_id || d.MessageID || d.MessageId || d["Message-Id"] || null,
   };
+}
+
+/**
+ * Fetch the body of a received message.
+ *
+ * Only needed for providers whose webhook omits it. Returns null on failure so
+ * the caller can decide whether an empty message is still worth recording.
+ */
+export async function fetchInboundBody({ apiKey, emailId }) {
+  const res = await fetch(`https://api.resend.com/emails/inbound/${emailId}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return null;
+
+  const mail = await res.json().catch(() => null);
+  if (!mail) return null;
+
+  const body =
+    mail.text ||
+    (typeof mail.html === "string" && !mail.html.startsWith("data:")
+      ? mail.html.replace(/<[^>]+>/g, " ")
+      : "");
+
+  return { text: stripQuoted(body), subject: mail.subject || null };
 }
 
 /** `email:<channelId>:<address>` → the customer's address. */

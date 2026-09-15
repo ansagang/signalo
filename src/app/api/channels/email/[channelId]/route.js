@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
-import { sendEmail, parseInbound, replySubject } from "@/lib/channels/email";
+import { sendEmail, parseInbound, replySubject, fetchInboundBody } from "@/lib/channels/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +50,19 @@ export async function POST(request, { params }) {
   const apiKey = channel.secrets?.api_key || process.env.RESEND_API_KEY;
   const address = channel.config?.address;
   if (!address) return ok();
+
+  // Resend only announces the message; go and get the text it left behind.
+  if (!mail.text && mail.emailId && apiKey) {
+    const full = await fetchInboundBody({ apiKey, emailId: mail.emailId });
+    if (full?.text) {
+      mail.text = full.text;
+      if (full.subject && mail.subject === "(no subject)") mail.subject = full.subject;
+    }
+  }
+
+  // An empty message (an autoreply, or a body we could not read) is not worth
+  // answering, but it is still worth nothing more than a silent 200.
+  if (!mail.text) return ok();
 
   // Never answer ourselves: a bounce or an autoresponder loop would otherwise
   // ping-pong until someone notices the bill.
