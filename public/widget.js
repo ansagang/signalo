@@ -125,9 +125,9 @@
 
     function paintLauncher() {
       if (open) { launcher.innerHTML = ICON_CLOSE; return; }
-      // Proportional to the button and deliberately generous — a small glyph
-      // in a large circle reads as an afterthought.
-      var glyph = Math.round(size * 0.58);
+      // Proportional to the button: enough presence to read at a glance,
+      // with the circle still visible around it.
+      var glyph = Math.round(size * 0.52);
       var avatar = config.avatarShape
         ? shapeSvg(config.avatarShape, glyph)
         : config.avatar
