@@ -94,6 +94,8 @@ export async function GET(request, { params }) {
         avatarShape: config.avatarShape || "bot",
       },
     },
-    { headers: { ...CORS, "Cache-Control": "public, max-age=60" } },
+    // No caching: a seller who changes the accent and reloads must see it
+    // immediately. A minute of staleness read as "the button does not change".
+    { headers: { ...CORS, "Cache-Control": "no-store" } },
   );
 }

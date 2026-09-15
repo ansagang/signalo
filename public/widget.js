@@ -229,7 +229,8 @@
   }
 
   // Look comes from the dashboard; if it cannot be reached the widget still works.
-  fetch(origin + "/api/widget/" + encodeURIComponent(key), {
+  fetch(origin + "/api/widget/" + encodeURIComponent(key) + "?t=" + Date.now(), {
+    cache: "no-store",
     // ngrok's free tier answers browser requests with an HTML interstitial —
     // a 200 that is not our JSON — which silently reverted every page to the
     // default look. This header is ngrok's documented opt-out and is ignored
