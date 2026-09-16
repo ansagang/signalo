@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useAdjustStock, useResetStock,
   useServices, useCreateService, useUpdateService, useDeleteService,
-  useResources, useServiceResourceMap, useSetServiceResources,
+  useResources, useServiceResourceMap,
 } from "@/hooks/use-catalogue";
 import useDebounce from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
@@ -397,7 +397,8 @@ export function RowActions({ onEdit, onDelete, p }) {
 export function EditorDialog({ kind, row, resources, assigned, p, res, language, onClose }) {
   const isProduct = kind === "products";
   const [form, setForm] = useState(row);
-  const [masters, setMasters] = useState(assigned);
+  // Shown, never edited — Business is where this is set.
+  const assignedPeople = (resources || []).filter((r) => assigned.includes(r.id));
   const [times, setTimes] = useState(
     (row.slot_times || []).map((t) => String(t).slice(0, 5)).join(", "),
   );
@@ -406,7 +407,6 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
   const updateProduct = useUpdateProduct();
   const createService = useCreateService();
   const updateService = useUpdateService();
-  const setServiceResources = useSetServiceResources();
 
   const pending =
     createProduct.isPending || updateProduct.isPending ||
@@ -418,10 +418,7 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
     e.preventDefault();
     if (!form.name?.trim()) return showError(res.nameRequired);
 
-    const finish = async (serviceId) => {
-      if (!isProduct && serviceId) {
-        await setServiceResources.mutateAsync({ serviceId, resourceIds: masters });
-      }
+    const finish = () => {
       showSuccess(row.id ? res.catalogueUpdated : res.catalogueCreated);
       onClose();
     };
@@ -471,7 +468,7 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
 
     const done = (r) => {
       if (r?.success === false) return showError(r.message);
-      finish(row.id || r?.data?.id);
+      finish();
     };
     if (row.id) updateService.mutate({ id: row.id, updates: payload }, { onSuccess: done, onError: fail });
     else createService.mutate(payload, { onSuccess: done, onError: fail });
@@ -624,36 +621,26 @@ export function EditorDialog({ kind, row, resources, assigned, p, res, language,
 
               <div className="border-t border-secondary-transparent pt-4">
                 <p className="text-[13px] font-semibold text-fg mb-1">{p.resourcesSection.title}</p>
-                <Hint className="mb-3">{p.resourcesSection.help}</Hint>
 
-                {!resources?.length ? (
-                  <Hint>{p.resourcesSection.none}</Hint>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {resources.filter((s) => s.active).map((s) => {
-                      const on = masters.includes(s.id);
-                      return (
-                        <button
+                {assignedPeople.length ? (
+                  <>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {assignedPeople.map((s) => (
+                        <span
                           key={s.id}
-                          type="button"
-                          onClick={() =>
-                            setMasters((m) => (on ? m.filter((x) => x !== s.id) : [...m, s.id]))
-                          }
-                          className={cn(
-                            "px-2.5 py-1.5 rounded-button text-[12px] font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5",
-                            on ? "bg-fg text-primary" : "bg-secondary-transparent2 text-secondary hover:text-fg",
-                          )}
+                          className="px-2.5 py-1.5 rounded-button bg-secondary-transparent2 text-secondary text-[12px] font-medium inline-flex items-center gap-1.5"
                         >
                           <span>{s.icon || "💫"}</span>
                           {s.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {!masters.length && (
-                  <Hint className="mt-2">
-                    {p.resourcesSection.noneSelected.replace("{n}", form.capacity || 1)}
+                        </span>
+                      ))}
+                    </div>
+                    <Hint>{p.resourcesSection.managedElsewhere}</Hint>
+                  </>
+                ) : (
+                  <Hint>
+                    {p.resourcesSection.noneSelected.replace("{n}", form.capacity || 1)}{" "}
+                    {p.resourcesSection.managedElsewhere}
                   </Hint>
                 )}
               </div>

@@ -649,10 +649,9 @@
           "capacityHint": "How many of these can run at the same time — tables in the room, mats in the studio, chairs in the shop. Ignored if you name specific people below, because then each person is their own queue."
         },
         "resourcesSection": {
-          "title": "Who does it (optional)",
-          "help": "Only for work a named person performs, like a stylist or a doctor. A table booking or a class has nobody attached — leave this empty and the limit above is what counts.",
-          "none": "No people added yet. Add them under Business if customers book by name.",
-          "noneSelected": "Nobody attached — this is limited only by “How many at once” ({n})."
+          "title": "Who does it",
+          "noneSelected": "Nobody is assigned, so this is limited only by “How many at once” ({n}).",
+          "managedElsewhere": "Set this in Business → Your team, on the person. Keeping it in one place means the two lists can never disagree."
         }
       },
       "bookings": {

@@ -4,7 +4,7 @@ import {
   getServices, createService, updateService, deleteService,
   getResources, createResource, updateResource, deleteResource,
   getBusinessHours, saveBusinessHours, saveTimezone,
-  getServiceResourceMap, setServiceResources, setResourceServices,
+  getServiceResourceMap, setResourceServices,
   getResourceHours, saveResourceHours,
 } from "@/actions/catalogue";
 
@@ -83,17 +83,6 @@ export const useDeleteResource = crud("resources", deleteResource);
 /* service ↔ resource */
 export function useServiceResourceMap() {
   return useQuery({ queryKey: ["service-resource"], queryFn: getServiceResourceMap, staleTime: 5 * 60_000 });
-}
-export function useSetServiceResources() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ serviceId, resourceIds }) => setServiceResources(serviceId, resourceIds),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["service-resource"] });
-      qc.invalidateQueries({ queryKey: ["services"] });
-      qc.invalidateQueries({ queryKey: ["resources"] });
-    },
-  });
 }
 
 export function useSetResourceServices() {
