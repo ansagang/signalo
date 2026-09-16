@@ -1,6 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
+import { ensureWelcomeGrant } from "@/lib/services/billing";
 import supabaseErrors from "@/lib/supabase/errors";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
@@ -53,6 +55,47 @@ export async function login({ email, password }, t) {
     if (error) {
         return supabaseErrors({ error, t })
     }
+}
+
+/**
+ * Create an account and sign straight in.
+ *
+ * The welcome balance is granted here so a new seller can try the assistant
+ * immediately — an empty account with no credits looks broken rather than free.
+ */
+export async function register({ business, email, password }, t) {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: business } },
+    })
+    if (error) {
+        return supabaseErrors({ error, t })
+    }
+
+    // Supabase returns a user with no session when confirmation is required.
+    if (!data.session) {
+        return { success: true, confirm: true }
+    }
+
+    const userId = data.user?.id
+    if (userId) {
+        try {
+            const service = createServiceClient()
+            await service
+                .from("profiles")
+                .upsert({ id: userId, email, full_name: business }, { onConflict: "id" })
+            await ensureWelcomeGrant(service, userId)
+        } catch (err) {
+            // A missing welcome balance is worth fixing later, never worth
+            // failing a signup that already succeeded.
+            console.error("register bonus", err?.message || err)
+        }
+    }
+
+    return { success: true }
 }
 
 export async function logOut(t) {

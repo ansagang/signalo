@@ -64,6 +64,13 @@ if (!profile) {
   });
 }
 
+// New accounts start with a balance so the product can actually be tried.
+await rest("credit_transactions", {
+  method: "POST",
+  body: JSON.stringify({ user_id: body.id, delta: 10000, reason: "grant", note: "Welcome balance" }),
+});
+
 console.log(`created  ${email} / ${password}`);
 console.log(`user_id  ${body.id}`);
+console.log("credits  10,000 welcome balance");
 console.log("empty: no catalogue, no people, no personas, no channels.");

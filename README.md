@@ -164,9 +164,32 @@ bucket (5 MB cap, raster types only — SVG is refused because it can carry
 script). Uploads are namespaced by user id. The assistant calls `show_items` to
 put picture cards in the chat; the widget renders them inline.
 
+## Instagram DMs
+
+Instagram messaging runs on the same Meta app as WhatsApp. The seller's
+Instagram must be a *professional* account linked to a Facebook Page, with
+"Allow access to messages" turned on in the Instagram app.
+
+One-click connect needs one extra variable beyond the WhatsApp ones:
+
+```
+NEXT_PUBLIC_META_IG_CONFIG_ID=   # Facebook Login for Business config for Instagram messaging
+META_VERIFY_TOKEN=               # only for the shared callback below
+```
+
+Without it the dashboard falls back to the manual fields (access token,
+Instagram account id, app secret) and a per-channel callback URL.
+
+Meta allows only **one** Instagram callback URL per app, so a deployment
+serving several sellers cannot give each its own path. Point the app at
+`/api/channels/instagram/app` and inbound messages are routed to the right
+channel by the Instagram account id in the payload; `META_VERIFY_TOKEN` is
+what that shared URL checks during Meta's handshake. The per-channel URL
+(`/api/channels/instagram/<channel id>`) still works for a single account.
+
 ## Testing webhooks locally
 
-Telegram and WhatsApp need a public HTTPS URL — local TLS is not enough, since
+Telegram, WhatsApp and Instagram need a public HTTPS URL — local TLS is not enough, since
 the provider has to reach your machine from the internet.
 
 ```bash
@@ -184,8 +207,12 @@ Next rejects the tunnelled dev requests.
 
 - `messages.role` is `customer` / `assistant` / `agent`; the model's `user` /
   `assistant` vocabulary is mapped at the boundary in `engine.js`.
-- `conversations.channel` is `webchat` / `telegram` / `whatsapp` / `email` /
-  `playground` — `playground` keeps dashboard test chats out of the real inbox.
+- `conversations.channel` is `webchat` / `telegram` / `whatsapp` / `instagram` /
+  `email` / `playground` — `playground` keeps dashboard test chats out of the
+  real inbox.
+- `messages.metadata.actions` records what a reply actually did (booked, moved,
+  cancelled, order, handoff). The inbox renders these as chips under the
+  message, so a transcript says whether a promise became a real booking.
 - Channel `secrets` (bot tokens, webhook secrets) are never returned to the
   client; `getChannels` exposes only a `has_token` flag.
 - Opening hours are per account, not per persona — one account is one business.

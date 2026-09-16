@@ -1,6 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  embeddedSignupReady, exchangeCode, subscribeWaba, registerNumber, numberDetails, newPin,
+} from "@/lib/channels/meta";
+import { accountDetails } from "@/lib/channels/instagram";
 
 async function scoped() {
   const supabase = await createClient();
@@ -24,11 +28,12 @@ const SAFE_COLUMNS = "id, user_id, persona_id, type, name, public_key, config, i
 const SECRET_FIELDS = {
   telegram: ["bot_token"],
   whatsapp: ["access_token", "phone_number_id", "app_secret"],
+  instagram: ["access_token", "ig_id", "app_secret"],
   email: ["api_key"],
   web: [],
 };
 
-const CHANNEL_TYPES = ["web", "telegram", "whatsapp", "email"];
+const CHANNEL_TYPES = ["web", "telegram", "whatsapp", "email", "instagram"];
 
 export async function getChannels() {
   const { supabase, user } = await scoped();
@@ -51,7 +56,7 @@ export async function getChannels() {
 
     // "Has a credential" differs per channel, but the card only needs one flag.
     const token =
-      channel.type === "whatsapp" ? s.access_token || ""
+      channel.type === "whatsapp" || channel.type === "instagram" ? s.access_token || ""
       : channel.type === "email" ? s.api_key || ""
       : s.bot_token || "";
 
@@ -67,15 +72,21 @@ export async function getChannels() {
       ...channel,
       has_token: Boolean(token),
       has_webhook:
-        channel.type === "whatsapp" ? Boolean(s.verify_token)
+        channel.type === "whatsapp" || channel.type === "instagram" ? Boolean(s.verify_token)
         : channel.type === "email" ? Boolean(s.inbound_secret)
         : Boolean(s.webhook_secret),
       token_hint: hint,
       // WhatsApp needs both halves before it can send at all.
       wa_phone_id: channel.type === "whatsapp" ? s.phone_number_id || null : undefined,
       has_app_secret: channel.type === "whatsapp" ? Boolean(s.app_secret) : undefined,
+      // Instagram needs the account id before it can send at all.
+      ig_id: channel.type === "instagram" ? s.ig_id || null : undefined,
+      has_app_secret_ig: channel.type === "instagram" ? Boolean(s.app_secret) : undefined,
       // Shown so it can be pasted into the provider's console.
-      verify_token: channel.type === "whatsapp" ? s.verify_token || null : undefined,
+      verify_token:
+        channel.type === "whatsapp" || channel.type === "instagram"
+          ? s.verify_token || null
+          : undefined,
       inbound_secret: channel.type === "email" ? s.inbound_secret || null : undefined,
     };
   });
@@ -96,6 +107,7 @@ export async function createChannel({ type, name, persona_id }) {
       telegram: "Telegram bot",
       whatsapp: "WhatsApp",
       email: "Email inbox",
+      instagram: "Instagram",
     }[type];
     const { count } = await supabase
       .from("channels")
@@ -114,7 +126,7 @@ export async function createChannel({ type, name, persona_id }) {
       name: finalName,
       public_key: newPublicKey(),
       secrets:
-        type === "whatsapp"
+        type === "whatsapp" || type === "instagram"
           ? { verify_token: crypto.randomUUID().replace(/-/g, "") }
           : type === "email"
             ? { inbound_secret: crypto.randomUUID().replace(/-/g, "") }
@@ -356,4 +368,244 @@ export async function verifyEmail(id) {
   }
 
   return { success: true, message: `Ready to send and receive on ${channel.config.address}` };
+}
+
+
+/** Whether the dashboard should offer the one-click flow at all. */
+export async function whatsappSignupAvailable() {
+  return { available: embeddedSignupReady(), appId: process.env.NEXT_PUBLIC_META_APP_ID || null,
+           configId: process.env.NEXT_PUBLIC_META_CONFIG_ID || null };
+}
+
+/**
+ * Finish Embedded Signup.
+ *
+ * The browser popup gives us a one-time code and the ids of the account the
+ * seller picked. Everything after that happens here: swap the code for a
+ * token, point Meta's webhooks at us, register the number, and save it as an
+ * ordinary WhatsApp channel — the same shape the manual flow produces, so the
+ * inbound route and delivery need no special case.
+ */
+export async function connectWhatsAppEmbedded(channelId, { code, wabaId, phoneNumberId }) {
+  const { supabase, user } = await scoped();
+  if (!user) return { success: false, message: "Unauthorized" };
+  if (!embeddedSignupReady()) {
+    return { success: false, message: "WhatsApp sign-in is not configured on this deployment yet." };
+  }
+  if (!code || !wabaId || !phoneNumberId) {
+    return { success: false, message: "Meta did not return a complete account — try again." };
+  }
+
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("id, secrets")
+    .eq("id", channelId)
+    .eq("user_id", user.id)
+    .eq("type", "whatsapp")
+    .maybeSingle();
+
+  if (!channel) return { success: false, message: "Channel not found" };
+
+  try {
+    const token = await exchangeCode(code);
+    await subscribeWaba(wabaId, token);
+
+    // A number already live somewhere else cannot be registered again, and
+    // that is by far the most common reason this step fails.
+    const pin = newPin();
+    try {
+      await registerNumber(phoneNumberId, token, pin);
+    } catch (err) {
+      const message = err?.message || "";
+      if (!/already.*registered/i.test(message)) throw err;
+    }
+
+    let label = null;
+    try {
+      const details = await numberDetails(phoneNumberId, token);
+      label = [details.verified_name, details.display_phone_number].filter(Boolean).join(" ");
+    } catch {
+      // Cosmetic only — never fail a working connection over a display name.
+    }
+
+    await supabase
+      .from("channels")
+      .update({
+        secrets: {
+          ...(channel.secrets || {}),
+          access_token: token,
+          phone_number_id: phoneNumberId,
+          waba_id: wabaId,
+          // Kept so the number can be re-registered after a two-factor reset.
+          register_pin: pin,
+          app_secret: process.env.META_APP_SECRET,
+        },
+        config: label ? { connected_number: label } : undefined,
+        is_active: true,
+      })
+      .eq("id", channelId)
+      .eq("user_id", user.id);
+
+    return { success: true, message: label ? `Connected ${label}` : "WhatsApp connected" };
+  } catch (err) {
+    return { success: false, message: err?.message || "Meta refused the connection." };
+  }
+}
+
+/* ─────────────────────────────── Instagram ───────────────────────────── */
+
+/**
+ * Instagram is wired up in Meta's dashboard like WhatsApp, so there is no
+ * connect call — this proves the credentials work and reports whose account
+ * they belong to.
+ */
+export async function verifyInstagram(id) {
+  const { supabase, user } = await scoped();
+  if (!user) return { success: false, message: "Unauthorized" };
+
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("id, secrets, config")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!channel) return { success: false, message: "Channel not found" };
+
+  const token = channel.secrets?.access_token;
+  const igId = channel.secrets?.ig_id;
+  if (!token || !igId) {
+    return { success: false, message: "Add the access token and Instagram account id first" };
+  }
+
+  try {
+    const account = await accountDetails({ token, igId, login: channel.secrets?.login });
+    const label = account.username ? `@${account.username}` : account.name || igId;
+
+    // Worth storing: the card can then name the account without a round trip.
+    await supabase
+      .from("channels")
+      .update({ config: { ...(channel.config || {}), connected_account: label } })
+      .eq("id", channel.id)
+      .eq("user_id", user.id);
+
+    return { success: true, message: `Connected to ${label}` };
+  } catch (err) {
+    return { success: false, message: err?.message || "Instagram refused the credentials." };
+  }
+}
+
+/** Whether the dashboard should offer one-click Instagram at all. */
+export async function instagramSignupAvailable() {
+  return {
+    available: Boolean(
+      process.env.NEXT_PUBLIC_META_APP_ID &&
+      process.env.META_APP_SECRET &&
+      process.env.NEXT_PUBLIC_META_IG_CONFIG_ID,
+    ),
+    appId: process.env.NEXT_PUBLIC_META_APP_ID || null,
+    configId: process.env.NEXT_PUBLIC_META_IG_CONFIG_ID || null,
+  };
+}
+
+/**
+ * Finish one-click Instagram.
+ *
+ * The popup gives a one-time code. Everything else happens here: swap it for
+ * a token, find the Page whose Instagram account the seller picked, take that
+ * Page's own token, subscribe it to message webhooks, and save the result in
+ * the same shape the manual flow produces — so the inbound route and delivery
+ * need no special case.
+ */
+export async function connectInstagramEmbedded(channelId, { code, pageId } = {}) {
+  const { supabase, user } = await scoped();
+  if (!user) return { success: false, message: "Unauthorized" };
+  if (!code) return { success: false, message: "Meta did not return a sign-in code — try again." };
+
+  const { data: channel } = await supabase
+    .from("channels")
+    .select("id, secrets, config")
+    .eq("id", channelId)
+    .eq("user_id", user.id)
+    .eq("type", "instagram")
+    .maybeSingle();
+
+  if (!channel) return { success: false, message: "Channel not found" };
+
+  const version = process.env.META_API_VERSION || "v21.0";
+  const graph = async (path, { token, method = "GET", body } = {}) => {
+    const res = await fetch(`https://graph.facebook.com/${version}${path}`, {
+      method,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error?.message || `Meta returned ${res.status}`);
+    return json;
+  };
+
+  try {
+    const userToken = await exchangeCode(code);
+
+    // A seller may admin several Pages; only those with a professional
+    // Instagram account attached can receive DMs.
+    const { data: pages } = await graph(
+      "/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}",
+      { token: userToken },
+    );
+
+    const usable = (pages || []).filter((pg) => pg.instagram_business_account?.id);
+    if (!usable.length) {
+      return {
+        success: false,
+        message:
+          "None of your Facebook Pages has an Instagram professional account linked. Link one in Instagram → Settings → Account type, then try again.",
+      };
+    }
+
+    const page = (pageId && usable.find((pg) => pg.id === pageId)) || usable[0];
+    const igId = page.instagram_business_account.id;
+    const username = page.instagram_business_account.username;
+
+    // This is what replaces pasting a callback URL by hand: the Page starts
+    // delivering messages to the app's webhook from here on.
+    await graph(`/${page.id}/subscribed_apps`, {
+      token: page.access_token,
+      method: "POST",
+      body: { subscribed_fields: ["messages", "messaging_postbacks", "messaging_seen"] },
+    });
+
+    await supabase
+      .from("channels")
+      .update({
+        secrets: {
+          ...(channel.secrets || {}),
+          access_token: page.access_token,
+          ig_id: igId,
+          page_id: page.id,
+          login: "facebook",
+          app_secret: process.env.META_APP_SECRET,
+        },
+        config: {
+          ...(channel.config || {}),
+          connected_account: username ? `@${username}` : page.name,
+        },
+        is_active: true,
+      })
+      .eq("id", channelId)
+      .eq("user_id", user.id);
+
+    return {
+      success: true,
+      message: username ? `Connected @${username}` : `Connected ${page.name}`,
+      choices: usable.length > 1
+        ? usable.map((pg) => ({ id: pg.id, name: pg.name, username: pg.instagram_business_account.username }))
+        : null,
+    };
+  } catch (err) {
+    return { success: false, message: err?.message || "Meta refused the connection." };
+  }
 }

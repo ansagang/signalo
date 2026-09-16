@@ -8,7 +8,11 @@
 import { DEFAULT_TZ } from "@/lib/timezone";
 import { freeSlots, checkSlot, atLocal, localDay } from "@/lib/booking/schedule";
 
-export async function listAppointments(supabase, userId, { from, to, status, resourceId } = {}) {
+export async function listAppointments(
+  supabase,
+  userId,
+  { from, to, status, resourceId, conversationId } = {},
+) {
   let query = supabase
     .from("appointments")
     .select("*, services(name, category, duration_min, booking_mode), resources(name, icon, kind, capacity)")
@@ -19,6 +23,7 @@ export async function listAppointments(supabase, userId, { from, to, status, res
   if (to) query = query.lt("starts_at", to);
   if (status) query = query.eq("status", status);
   if (resourceId) query = query.eq("resource_id", resourceId);
+  if (conversationId) query = query.eq("conversation_id", conversationId);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -197,7 +202,9 @@ export async function customerAppointments(
   userId,
   { conversationId, identifier, channel },
 ) {
-  const verified = ["telegram", "whatsapp", "email"].includes(channel);
+  // Instagram's scoped id is stable per account, so it identifies a returning
+  // customer as well as a chat id or a phone number does.
+  const verified = ["telegram", "whatsapp", "email", "instagram"].includes(channel);
 
   let query = supabase
     .from("appointments")

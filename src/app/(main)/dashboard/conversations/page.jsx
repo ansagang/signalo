@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getUser } from "@/actions/auth";
 import { getLanguage } from "@/lib/get-language";
+import { tzOf } from "@/lib/timezone";
 import Inbox from "./inbox";
 import { LoaderIcon } from "lucide-react";
 
@@ -27,7 +28,7 @@ export default async function ConversationsPage() {
         </div>
       }
     >
-      <Inbox language={language} />
+      <Inbox language={language} timezone={tzOf(user)} />
     </Suspense>
   );
 }

@@ -691,9 +691,3 @@ export function anthropicTools() {
 }
 
 /** OpenAI chat-completions function definitions. */
-export function openaiTools() {
-  return toolSpecs.map(({ name, description, input_schema }) => ({
-    type: "function",
-    function: { name, description, parameters: input_schema },
-  }));
-}

@@ -11,7 +11,8 @@
  * periodic checkpoint row, not moving this back into the database.
  */
 
-import { creditsFor, creditsToUsd, LOW_BALANCE } from "@/lib/ai/pricing";
+import { creditsFor, creditsToUsd, LOW_BALANCE, WELCOME_CREDITS } from "@/lib/ai/pricing";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const PAGE = 1000;
 
@@ -42,11 +43,18 @@ export async function creditBalance(supabase, userId) {
  * transaction is its effect on the balance.
  */
 export async function recordUsage(
-  supabase,
+  _supabase,
   userId,
-  { model, inputTokens = 0, outputTokens = 0, kind = "chat", conversationId = null, channel = null },
+  { model, inputTokens = 0, outputTokens = 0, cacheWriteTokens = 0, cacheReadTokens = 0,
+    kind = "chat", conversationId = null, channel = null },
 ) {
-  const credits = creditsFor({ model, inputTokens, outputTokens });
+  const credits = creditsFor({ model, inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens });
+
+  // The ledger is append-only and readable by its owner, never writable by
+  // them — the policies grant SELECT and nothing else. A caller holding a
+  // session client (the playground, the setup wizard) would have its insert
+  // silently refused, so writes always go through the service role.
+  const supabase = createServiceClient();
 
   const { data: event, error } = await supabase
     .from("usage_events")
@@ -56,7 +64,9 @@ export async function recordUsage(
       channel,
       kind,
       model,
-      input_tokens: Math.max(0, Math.round(inputTokens)),
+      // Recorded together so the seller sees the size of a conversation, not
+      // an accounting split they did not ask about.
+      input_tokens: Math.max(0, Math.round(inputTokens + cacheWriteTokens + cacheReadTokens)),
       output_tokens: Math.max(0, Math.round(outputTokens)),
       credits,
     })
@@ -77,11 +87,32 @@ export async function recordUsage(
   return { credits, eventId: event.id };
 }
 
+/**
+ * Give a new account its welcome balance, once.
+ *
+ * Idempotent: an account that has any ledger row at all has already been
+ * granted, so calling this again is a no-op. Safe to call from signup, from
+ * the admin script, or from a backfill.
+ */
+export async function ensureWelcomeGrant(supabase, userId, amount = WELCOME_CREDITS) {
+  const { data, error } = await supabase
+    .from("credit_transactions")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1);
+  if (error) throw error;
+  if (data?.length) return { granted: false };
+
+  await addCredits(null, userId, amount, { reason: "grant", note: "Welcome balance" });
+  return { granted: true, amount };
+}
+
 /** Put credits in. Top-ups, welcome grants, goodwill. */
-export async function addCredits(supabase, userId, amount, { reason = "topup", note } = {}) {
+export async function addCredits(_supabase, userId, amount, { reason = "topup", note } = {}) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) throw new Error("Amount must be positive.");
 
+  const supabase = createServiceClient();
   const { error } = await supabase.from("credit_transactions").insert({
     user_id: userId,
     delta: value,
@@ -102,7 +133,7 @@ export async function addCredits(supabase, userId, amount, { reason = "topup", n
 export async function billingOverview(supabase, userId, { days = 30 } = {}) {
   const since = new Date(Date.now() - days * 86400_000).toISOString();
 
-  const [balance, events, transactions] = await Promise.all([
+  const [balance, events, transactions, plans, subscription] = await Promise.all([
     creditBalance(supabase, userId),
     allRows(
       supabase, "usage_events",
@@ -117,6 +148,8 @@ export async function billingOverview(supabase, userId, { days = 30 } = {}) {
       .order("created_at", { ascending: false })
       .limit(50)
       .then(({ data }) => data || []),
+    listPlans(supabase),
+    currentSubscription(supabase, userId),
   ]);
 
   const spent = events.reduce((sum, e) => sum + Number(e.credits), 0);
@@ -156,7 +189,10 @@ export async function billingOverview(supabase, userId, { days = 30 } = {}) {
 
   return {
     balance,
+    plans,
+    subscription,
     lowBalance: balance < LOW_BALANCE,
+    outOfCredits: balance <= 0,
     money: creditsToUsd(balance),
     days,
     spent: Math.round(spent * 100) / 100,
@@ -171,4 +207,145 @@ export async function billingOverview(supabase, userId, { days = 30 } = {}) {
     recent: events.slice(0, 20),
     transactions,
   };
+}
+
+/* ─────────────────────────── plans & subscriptions ────────────────────── */
+
+export async function listPlans(supabase) {
+  const { data, error } = await supabase
+    .from("plans").select("*").eq("active", true).order("sort");
+  if (error) throw error;
+  return data || [];
+}
+
+/** The seller's subscription, with the plan attached. */
+export async function currentSubscription(supabase, userId) {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*, plans(*)")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+/** Credits granted, and usage taken, inside one window. */
+async function periodTotals(supabase, userId, from, to) {
+  const { data, error } = await supabase
+    .from("credit_transactions")
+    .select("delta, reason")
+    .eq("user_id", userId)
+    .gte("created_at", from)
+    .lt("created_at", to);
+  if (error) throw error;
+
+  let granted = 0, used = 0;
+  for (const row of data || []) {
+    const value = Number(row.delta);
+    if (row.reason === "subscription") granted += value;
+    else if (row.reason === "usage") used += -value;
+  }
+  return { granted, used };
+}
+
+/**
+ * Start a period: write off what the last allowance did not use, then grant
+ * the new one.
+ *
+ * Idempotent per period — calling it twice inside the same window grants once,
+ * so a retried webhook or a double-run cron cannot hand out free credits.
+ */
+export async function startPeriod(supabase, userId, plan, { from, to }) {
+  const { data: already } = await supabase
+    .from("credit_transactions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reason", "subscription")
+    .gte("created_at", from)
+    .limit(1);
+  if (already?.length) return { granted: false };
+
+  const sub = await currentSubscription(supabase, userId);
+  if (sub) {
+    // Only the unused part of the old allowance expires. Anything spent has
+    // already left the balance, and overage came out of paid-for packs.
+    const { granted, used } = await periodTotals(
+      supabase, userId, sub.current_period_start, sub.current_period_end,
+    );
+    const unused = Math.max(0, granted - used);
+    if (unused > 0) {
+      await supabase.from("credit_transactions").insert({
+        user_id: userId,
+        delta: -unused,
+        reason: "expiry",
+        note: `Unused ${sub.plan_key} allowance`,
+      });
+    }
+  }
+
+  await supabase.from("credit_transactions").insert({
+    user_id: userId,
+    delta: plan.credits,
+    reason: "subscription",
+    note: `${plan.name} monthly allowance`,
+  });
+
+  await supabase.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      plan_key: plan.key,
+      status: "active",
+      current_period_start: from,
+      current_period_end: to,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  return { granted: true, credits: plan.credits };
+}
+
+/** One month from `at`, which is what every plan bills on. */
+export function nextPeriod(at = new Date()) {
+  const from = new Date(at);
+  const to = new Date(at);
+  to.setMonth(to.getMonth() + 1);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+/**
+ * Put a seller on a plan.
+ *
+ * Called by a payment webhook once money has actually moved. Nothing here
+ * takes payment — this is the ledger half.
+ */
+export async function activatePlan(supabase, userId, planKey, { provider, providerRef } = {}) {
+  const { data: plan, error } = await supabase
+    .from("plans").select("*").eq("key", planKey).maybeSingle();
+  if (error) throw error;
+  if (!plan) throw new Error(`No such plan: ${planKey}`);
+
+  const period = nextPeriod();
+  const result = await startPeriod(supabase, userId, plan, period);
+
+  if (provider || providerRef) {
+    await supabase
+      .from("subscriptions")
+      .update({ provider: provider || null, provider_ref: providerRef || null })
+      .eq("user_id", userId);
+  }
+
+  return { plan, ...result };
+}
+
+/**
+ * Whether the assistant may answer.
+ *
+ * A seller out of credits should not have their customers ignored, so the
+ * caller hands the conversation to a human instead — the same path a
+ * complaint takes. Silence is what loses the customer, not the bill.
+ */
+export async function canSpend(supabase, userId) {
+  const balance = await creditBalance(supabase, userId);
+  return { ok: balance > 0, balance };
 }

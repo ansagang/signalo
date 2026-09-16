@@ -20,12 +20,20 @@ export const WIDGET_THEMES = {
 };
 
 export const WIDGET_DEFAULTS = {
-  accent: "#00d26a",
+  accent: "#c9ced6",
   position: "right",
   offset: 20,
   size: 56,
   radius: 16,
   launcherLabel: "",
+  // "orb" is the animated sphere; "button" is the classic round button.
+  launcherStyle: "orb",
+  // Second hue for the orb's swirl. Left empty it is derived from the accent.
+  accent2: "",
+  // How lively the orb is, and whether it carries a halo. Both exist because
+  // "a moving thing in the corner" is a real complaint on a busy page.
+  orbMotion: "alive",
+  orbGlow: true,
   title: "Chat",
   subtitle: "",
   avatar: "",

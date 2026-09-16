@@ -4,7 +4,7 @@ import Script from "next/script";
 import { getLanguage } from "@/lib/get-language";
 import LandingNav from "./landing-nav";
 import FaqList from "./faq-list";
-import ChatPreview from "./chat-preview";
+import Conversation from "./conversation";
 import {
   ArrowRightIcon, BookOpenIcon, BoxIcon, CalendarCheckIcon, CheckIcon,
   GlobeIcon, LanguagesIcon, MailIcon, MessageCircleIcon, ScrollTextIcon,
@@ -34,7 +34,7 @@ function Heading({ eyebrow, title, subtitle, center }) {
       {eyebrow && (
         <p className="text-[11px] font-mono uppercase tracking-[0.16em] text-muted mb-3">{eyebrow}</p>
       )}
-      <h2 className="text-[30px] tablet:text-[38px] font-semibold tracking-[-0.02em] leading-[1.12] text-fg">
+      <h2 className="text-[30px] tablet:text-[42px] font-normal tracking-[-0.03em] leading-[1.06] text-fg">
         {title}
       </h2>
       {subtitle && <p className="mt-4 text-[15px] text-secondary leading-relaxed">{subtitle}</p>}
@@ -65,55 +65,69 @@ export default async function LandingPage() {
         {/* One soft wash behind the fold; cheaper and calmer than a canvas. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-40 h-[620px] opacity-[0.16]"
+          className="pointer-events-none absolute inset-x-0 -top-52 h-[720px] opacity-[0.20]"
           style={{
             background:
-              "radial-gradient(60% 55% at 50% 40%, var(--color-accent) 0%, transparent 70%)",
+              "radial-gradient(48% 46% at 72% 38%, var(--color-accent) 0%, transparent 72%)",
           }}
         />
-        <div className="relative mx-auto max-w-[1180px] px-6 pt-16 tablet:pt-24 pb-16">
-          <div className="grid gap-12 laptop:grid-cols-[minmax(0,1fr)_420px] laptop:gap-16 items-center">
+
+        <div className="relative mx-auto max-w-[1180px] px-6 pt-20 tablet:pt-28 pb-20">
+          <div className="grid gap-10 laptop:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)] laptop:gap-14 items-end">
             <div>
               <span className="inline-flex items-center gap-2 h-7 px-3 rounded-full border border-secondary-transparent bg-secondary-transparent2 text-[11px] font-mono uppercase tracking-[0.14em] text-secondary">
                 {p.hero.badge}
               </span>
 
-              <h1 className="mt-6 text-[40px] tablet:text-[56px] laptop:text-[62px] font-semibold tracking-[-0.03em] leading-[1.03] text-fg">
-                {p.hero.title}
-                <br />
+              {/* Light weight at a large size reads as confidence; bold at this
+                  size reads as shouting. */}
+              <h1 className="mt-7 text-[44px] tablet:text-[60px] laptop:text-[68px] font-normal tracking-[-0.035em] leading-[0.98] text-fg">
+                {p.hero.title}{" "}
                 <span className="text-accent">{p.hero.titleAccent}</span>
               </h1>
+            </div>
 
-              <p className="mt-6 text-[16px] tablet:text-[17px] text-secondary leading-relaxed max-w-[56ch]">
+            <div className="laptop:pb-3">
+              <p className="text-[16px] tablet:text-[17px] text-secondary leading-relaxed max-w-[44ch]">
                 {p.hero.subtitle}
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="mt-7 flex flex-wrap items-center gap-2.5">
                 <Link
                   href="/register"
-                  className="inline-flex h-11 items-center gap-2 px-5 rounded-button bg-fg text-primary text-[14px] font-medium hover:opacity-90 transition-opacity"
+                  className="group inline-flex h-11 items-center gap-2 pl-5 pr-4 rounded-full bg-fg text-primary text-[14px] font-medium transition-transform duration-200 hover:scale-[1.03] active:scale-[.98]"
                 >
                   {p.hero.cta}
-                  <ArrowRightIcon className="size-4" />
+                  <ArrowRightIcon className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <a
                   href="#demo"
-                  className="inline-flex h-11 items-center px-5 rounded-button border border-border text-[14px] text-fg hover:border-border-hover transition-colors"
+                  className="inline-flex h-11 items-center px-5 rounded-full border border-border text-[14px] text-fg transition-colors hover:border-border-hover hover:bg-secondary-transparent2"
                 >
                   {p.hero.ctaSecondary}
                 </a>
               </div>
 
-              <p className="mt-4 text-[12px] text-muted">{p.hero.note}</p>
-            </div>
-
-            <div className="laptop:pl-4">
-              <ChatPreview label={p.hero.badge} />
+              <p className="mt-3.5 text-[12px] text-muted">{p.hero.note}</p>
             </div>
           </div>
 
+          {/* Three conversations, each a different trade, all doing the thing
+              the headline claims. */}
+          <div className="mt-16 tablet:mt-20 grid gap-4 laptop:grid-cols-3">
+            {p.hero.demos.map((demo, i) => (
+              <Conversation
+                key={demo.label}
+                label={demo.label}
+                // Three shades of the logo's own silver, not three unrelated colours.
+                accent={["#c9ced6", "#9aa2ae", "#e4e8ee"][i] || "#c9ced6"}
+                turns={demo.turns}
+              />
+            ))}
+          </div>
+
           {/* three short claims, kept to one line each */}
-          <div className="mt-16 tablet:mt-20 grid gap-px bg-[var(--color-secondary-transparent)] border border-secondary-transparent rounded-module overflow-hidden tablet:grid-cols-3">
+          <div className="mt-6 grid gap-px bg-[var(--color-secondary-transparent)] border border-secondary-transparent rounded-[20px] overflow-hidden tablet:grid-cols-3">
             {proof.map((item, i) => {
               const Icon = PROOF_ICONS[i];
               return (
@@ -137,7 +151,7 @@ export default async function LandingPage() {
             return (
               <div
                 key={item.title}
-                className="rounded-module border border-border bg-card p-6 hover:border-border-hover transition-colors"
+                className="rounded-[20px] border border-border bg-card p-6 transition-all duration-200 hover:border-border-hover hover:-translate-y-0.5"
               >
                 <span className="size-9 rounded-button bg-secondary-transparent2 grid place-items-center">
                   <Icon className="size-4 text-accent" />
@@ -158,7 +172,7 @@ export default async function LandingPage() {
             {p.channels.items.map((item, i) => {
               const Icon = CHANNEL_ICONS[i] || GlobeIcon;
               return (
-                <div key={item.name} className="rounded-module border border-border bg-bg p-6 text-center">
+                <div key={item.name} className="rounded-[20px] border border-border bg-bg p-6 text-center transition-all duration-200 hover:border-border-hover hover:-translate-y-0.5">
                   <span className="size-10 rounded-full bg-secondary-transparent2 grid place-items-center mx-auto">
                     <Icon className="size-4 text-fg" />
                   </span>
@@ -220,7 +234,7 @@ export default async function LandingPage() {
           <Heading title={p.who.title} center />
           <div className="mt-12 grid gap-4 tablet:grid-cols-3">
             {p.who.items.map((item) => (
-              <div key={item.name} className="rounded-module border border-border bg-bg p-6">
+              <div key={item.name} className="rounded-[20px] border border-border bg-bg p-6 transition-all duration-200 hover:border-border-hover hover:-translate-y-0.5">
                 <CheckIcon className="size-4 text-accent" />
                 <h3 className="mt-3 text-[15px] font-semibold text-fg">{item.name}</h3>
                 <p className="mt-2 text-[14px] text-secondary leading-relaxed">{item.body}</p>
@@ -241,7 +255,7 @@ export default async function LandingPage() {
       {/* ── closing ── */}
       <section className="border-t border-secondary-transparent">
         <div className="mx-auto max-w-[1180px] px-6 py-20 tablet:py-28 text-center">
-          <h2 className="mx-auto max-w-[24ch] text-[32px] tablet:text-[44px] font-semibold tracking-[-0.03em] leading-[1.08] text-fg">
+          <h2 className="mx-auto max-w-[24ch] text-[34px] tablet:text-[52px] font-normal tracking-[-0.035em] leading-[1.02] text-fg">
             {p.cta.title}
           </h2>
           <p className="mx-auto mt-5 max-w-[54ch] text-[15px] text-secondary leading-relaxed">
@@ -250,14 +264,14 @@ export default async function LandingPage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/register"
-              className="inline-flex h-11 items-center gap-2 px-6 rounded-button bg-fg text-primary text-[14px] font-medium hover:opacity-90 transition-opacity"
+              className="group inline-flex h-11 items-center gap-2 pl-6 pr-5 rounded-full bg-fg text-primary text-[14px] font-medium transition-transform duration-200 hover:scale-[1.03] active:scale-[.98]"
             >
               {p.cta.button}
               <ArrowRightIcon className="size-4" />
             </Link>
             <Link
               href="/login"
-              className="inline-flex h-11 items-center px-6 rounded-button border border-border text-[14px] text-fg hover:border-border-hover transition-colors"
+              className="inline-flex h-11 items-center px-6 rounded-full border border-border text-[14px] text-fg transition-colors hover:border-border-hover hover:bg-secondary-transparent2"
             >
               {p.cta.secondary}
             </Link>

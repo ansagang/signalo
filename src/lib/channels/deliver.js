@@ -9,6 +9,7 @@
 
 import { sendWhatsAppText, whatsappNumber } from "./whatsapp";
 import { sendEmail, emailAddressOf, replySubject } from "./email";
+import { sendInstagramText, instagramRecipient } from "./instagram";
 
 /** `telegram:<channelId>:<chatId>` → chatId */
 export function telegramChatId(conversation) {
@@ -85,6 +86,34 @@ export async function deliverToCustomer({ supabase, conversation, text }) {
     if (!to) return { ok: false, error: "Could not work out the WhatsApp number." };
 
     const sent = await sendWhatsAppText({ token, phoneNumberId, to, text });
+    return sent.ok
+      ? { ok: true, delivered: true, messageId: sent.messageId }
+      : { ok: false, error: sent.error };
+  }
+
+  if (conversation.channel === "instagram") {
+    if (!conversation.channel_id) {
+      return { ok: false, error: "This conversation is not linked to a channel." };
+    }
+
+    const { data: channel } = await supabase
+      .from("channels")
+      .select("secrets")
+      .eq("id", conversation.channel_id)
+      .maybeSingle();
+
+    const token = channel?.secrets?.access_token;
+    const igId = channel?.secrets?.ig_id;
+    if (!token || !igId) {
+      return { ok: false, error: "The Instagram account is not connected yet." };
+    }
+
+    const to = instagramRecipient(conversation);
+    if (!to) return { ok: false, error: "Could not work out the Instagram recipient." };
+
+    const sent = await sendInstagramText({
+      token, igId, login: channel?.secrets?.login, to, text,
+    });
     return sent.ok
       ? { ok: true, delivered: true, messageId: sent.messageId }
       : { ok: false, error: sent.error };

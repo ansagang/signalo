@@ -50,7 +50,7 @@ export const ICON_SHAPES = {
 
 export const SHAPE_KEYS = Object.keys(ICON_SHAPES);
 
-export default function BotIcon({ shape, accent = "#00d26a", size = 36, className, rounded = "rounded-button", bare }) {
+export default function BotIcon({ shape, accent = "#c9ced6", size = 36, className, rounded = "rounded-button", bare }) {
   const Shape = ICON_SHAPES[shape] || ICON_SHAPES.bot;
 
   return (
@@ -68,7 +68,7 @@ export default function BotIcon({ shape, accent = "#00d26a", size = 36, classNam
 }
 
 /** Shape grid. The background is the widget accent, so there is nothing else to pick. */
-export function BotIconPicker({ shape = "bot", accent = "#00d26a", onChange, className }) {
+export function BotIconPicker({ shape = "bot", accent = "#c9ced6", onChange, className }) {
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {SHAPE_KEYS.map((s) => {

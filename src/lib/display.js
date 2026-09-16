@@ -93,3 +93,19 @@ export function timeOnly(iso, timeZone = DEFAULT_TZ) {
     minute: "2-digit",
   }).format(new Date(iso));
 }
+
+/**
+ * A persona's icon, in whichever form it was saved.
+ *
+ * Two formats exist: a plain emoji, and an `icon:<shape>:<colour>` token from
+ * the icon picker. Printing the token verbatim put "icon:sparkles:amber" in
+ * front of a user, so callers get a form they can actually render.
+ */
+export function personaIcon(icon) {
+  const value = (icon || "").trim();
+  if (!value) return { shape: "bot" };
+  if (!value.startsWith("icon:")) return { emoji: value };
+
+  const [, shape] = value.split(":");
+  return { shape: shape || "bot" };
+}

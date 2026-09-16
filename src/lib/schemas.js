@@ -50,3 +50,17 @@ export function entrySchema(t) {
     active: z.boolean()
   });
 }
+
+export function registerSchema(t) {
+  return z.object({
+    business: z.string().min(1, { error: t.businessRequired }),
+    email: z
+      .string()
+      .min(1, { error: t.emailRequired })
+      .email({ error: t.emailInvalid }),
+    password: z
+      .string()
+      .min(1, { error: t.passwordRequired })
+      .min(8, { error: t.passwordMin }),
+  });
+}

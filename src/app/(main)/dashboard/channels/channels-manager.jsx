@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   useChannels, useCreateChannel, useUpdateChannel, useDeleteChannel,
-  useRotateKey, useConnectTelegram, useVerifyWhatsApp, useVerifyEmail,
+  useRotateKey, useConnectTelegram, useVerifyWhatsApp, useVerifyEmail, useVerifyInstagram,
 } from "@/hooks/use-channels";
 import { usePersonas } from "@/hooks/use-personas";
 import { cn } from "@/lib/utils";
@@ -16,15 +16,22 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Panel, EmptyState, Loading, Segmented, Toggle, Hint } from "@/components/ui/page";
 import BotIcon, { BotIconPicker } from "@/components/ui/bot-icon";
+import Orb from "@/components/chat/orb";
+import WhatsAppConnect from "./whatsapp-connect";
+import InstagramConnect from "./instagram-connect";
 import {
-  CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon, MailIcon,
-  MessageCircleIcon, PlusIcon, RefreshCwIcon, SendIcon, Trash2Icon,
+  CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, GlobeIcon, LoaderIcon,
+  MailIcon, PlusIcon, RefreshCwIcon, Trash2Icon,
 } from "lucide-react";
+import {
+  InstagramIcon, TelegramIcon, WhatsAppIcon, WidgetIcon,
+} from "@/components/ui/brand-icons";
 
 const TYPE_ICON = {
-  web: GlobeIcon,
-  telegram: SendIcon,
-  whatsapp: MessageCircleIcon,
+  web: WidgetIcon,
+  telegram: TelegramIcon,
+  whatsapp: WhatsAppIcon,
+  instagram: InstagramIcon,
   email: MailIcon,
 };
 
@@ -34,6 +41,25 @@ const TYPE_ICON = {
  * An empty password box gave no sign a secret was already stored, so every
  * channel looked unconfigured.
  */
+/** Hides advanced setup unless it is the only way in. */
+function Collapse({ open, label, children }) {
+  const [shown, setShown] = useState(open);
+  if (open) return <div className="space-y-4">{children}</div>;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        className="text-[12px] text-secondary hover:text-fg transition-colors cursor-pointer inline-flex items-center gap-1.5"
+      >
+        <ChevronDownIcon className={cn("size-3 transition-transform", shown && "rotate-180")} />
+        {label}
+      </button>
+      {shown && <div className="space-y-4 mt-3">{children}</div>}
+    </div>
+  );
+}
+
 function SecretField({ label, placeholder, saved, hint, onSave, pending, p }) {
   const [value, setValue] = useState("");
   const [editing, setEditing] = useState(false);
@@ -92,11 +118,28 @@ const WIDGET_THEMES = {
 };
 
 const WIDGET_DEFAULTS = {
-  accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
+  accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 16,
   launcherLabel: "", title: "", autoOpen: false, autoOpenDelay: 8, greetingBubble: "",
   theme: "dark", panelBg: null, panelText: null, panelSurface: null,
   avatarShape: "bot",
+  launcherStyle: "orb", accent2: "", orbMotion: "alive", orbGlow: true,
 };
+
+/**
+ * Ready-made orb colourways.
+ *
+ * The orb is two colours that have to agree with each other, which is a worse
+ * thing to ask of a salon owner than "pick one". An empty second colour means
+ * the widget derives it from the first — right for a single-colour brand.
+ */
+const ORB_PRESETS = [
+  { key: "silver",  accent: "#c9ced6", accent2: "" },
+  { key: "aurora",  accent: "#5ce1e6", accent2: "#a78bfa" },
+  { key: "sunset",  accent: "#ff8a3d", accent2: "#ff4d8d" },
+  { key: "ocean",   accent: "#3b82f6", accent2: "#22d3ee" },
+  { key: "orchid",  accent: "#a855f7", accent2: "#ec4899" },
+  { key: "ink",     accent: "#3a3a44", accent2: "#8b8b96" },
+];
 
 /** A colour field with swatches and a native picker. */
 function ColorField({ label, value, fallback, onChange, swatches }) {
@@ -131,7 +174,8 @@ function ColorField({ label, value, fallback, onChange, swatches }) {
   );
 }
 
-const SWATCHES = ["#00d26a", "#0090ff", "#ff5fa2", "#ff6a00", "#7c3aed", "#ededed"];
+// The brand silver first; the rest for sellers with a colour of their own.
+const SWATCHES = ["#c9ced6", "#8d93a0", "#0090ff", "#ff5fa2", "#ff6a00", "#7c3aed"];
 
 /**
  * Whole looks, not individual values.
@@ -140,7 +184,7 @@ const SWATCHES = ["#00d26a", "#0090ff", "#ff5fa2", "#ff6a00", "#7c3aed", "#edede
  * these set everything at once and remain the starting point for fine-tuning.
  */
 const LOOKS = [
-  { key: "midnight", theme: "dark",  accent: "#00d26a", panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22" },
+  { key: "midnight", theme: "dark",  accent: "#c9ced6", panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22" },
   { key: "ocean",    theme: "dark",  accent: "#0090ff", panelBg: "#0b1622", panelText: "#eaf2fb", panelSurface: "#16293d" },
   { key: "plum",     theme: "dark",  accent: "#c084fc", panelBg: "#14101c", panelText: "#f2edfb", panelSurface: "#241c33" },
   { key: "snow",     theme: "light", accent: "#0090ff", panelBg: "#ffffff", panelText: "#14141a", panelSurface: "#f1f1f4" },
@@ -187,7 +231,7 @@ function CopyBox({ value, label }) {
   );
 }
 
-export default function ChannelsManager({ language, origin }) {
+export default function ChannelsManager({ language, origin, signup, igSignup }) {
   const p = language.app.pages.channels;
   const res = language.app.res;
 
@@ -225,6 +269,8 @@ export default function ChannelsManager({ language, origin }) {
           p={p}
           res={res}
           base={base}
+          signup={signup}
+          igSignup={igSignup}
         />
       ))}
 
@@ -241,6 +287,10 @@ export default function ChannelsManager({ language, origin }) {
           <PlusIcon className="size-4" />
           {p.types.whatsapp.add}
         </Button>
+        <Button variant="ghost" onClick={() => add("instagram")} disabled={createChannel.isPending}>
+          <PlusIcon className="size-4" />
+          {p.types.instagram.add}
+        </Button>
         <Button variant="ghost" onClick={() => add("email")} disabled={createChannel.isPending}>
           <PlusIcon className="size-4" />
           {p.types.email.add}
@@ -250,13 +300,14 @@ export default function ChannelsManager({ language, origin }) {
   );
 }
 
-function ChannelCard({ channel, personas, p, res, base }) {
+function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
   const updateChannel = useUpdateChannel();
   const deleteChannel = useDeleteChannel();
   const rotateKey = useRotateKey();
   const connectTelegram = useConnectTelegram();
   const verifyWhatsApp = useVerifyWhatsApp();
   const verifyEmail = useVerifyEmail();
+  const verifyInstagram = useVerifyInstagram();
 
   const type = channel.type;
   const isWeb = type === "web";
@@ -270,6 +321,7 @@ function ChannelCard({ channel, personas, p, res, base }) {
   // Where the provider should post inbound messages.
   const webhookUrl =
     type === "whatsapp" ? `${base}/api/channels/whatsapp/${channel.id}`
+    : type === "instagram" ? `${base}/api/channels/instagram/${channel.id}`
     : type === "email" ? `${base}/api/channels/email/${channel.id}?secret=${channel.inbound_secret || ""}`
     : null;
   const snippet = `<script src="${base}/widget.js" data-key="${channel.public_key}" defer></script>`;
@@ -410,7 +462,7 @@ function ChannelCard({ channel, personas, p, res, base }) {
                   {connectTelegram.isPending ? (
                     <LoaderIcon className="size-3.5 animate-spin" />
                   ) : (
-                    <SendIcon className="size-3.5" />
+                    <TelegramIcon className="size-3.5" />
                   )}
                   {p.connect}
                 </Button>
@@ -419,41 +471,49 @@ function ChannelCard({ channel, personas, p, res, base }) {
 
             {type === "whatsapp" && (
               <>
-                <SecretField
-                  label={p.fields.waToken}
-                  placeholder={p.fields.waTokenPlaceholder}
-                  saved={channel.has_token}
-                  hint={channel.token_hint}
-                  pending={updateChannel.isPending}
-                  p={p}
-                  onSave={(v) => patch({ access_token: v }, res.tokenSaved)}
-                />
+                {/* One button beats five pasted fields, but the manual path
+                    has to stay for anyone already set up and for deployments
+                    without a verified Meta app. */}
+                {signup?.available && <WhatsAppConnect channel={channel} signup={signup} p={p} />}
 
-                <Field label={p.fields.waPhoneId}>
-                  <Input
-                    defaultValue={channel.wa_phone_id || ""}
-                    placeholder={p.fields.waPhoneIdPlaceholder}
-                    onBlur={(e) =>
-                      e.target.value !== (channel.wa_phone_id || "") &&
-                      patch({ phone_number_id: e.target.value.trim() }, res.channelUpdated)
-                    }
+                <Collapse open={!signup?.available} label={p.whatsappSignup.manual}>
+                  <SecretField
+                    label={p.fields.waToken}
+                    placeholder={p.fields.waTokenPlaceholder}
+                    saved={channel.has_token}
+                    hint={channel.token_hint}
+                    pending={updateChannel.isPending}
+                    p={p}
+                    onSave={(v) => patch({ access_token: v }, res.tokenSaved)}
                   />
-                </Field>
 
-                <SecretField
-                  label={p.fields.waAppSecret}
-                  placeholder={p.fields.waAppSecretPlaceholder}
-                  saved={channel.has_app_secret}
-                  hint="••••••••"
-                  pending={updateChannel.isPending}
-                  p={p}
-                  onSave={(v) => patch({ app_secret: v }, res.tokenSaved)}
-                />
+                  <Field label={p.fields.waPhoneId}>
+                    <Input
+                      defaultValue={channel.wa_phone_id || ""}
+                      placeholder={p.fields.waPhoneIdPlaceholder}
+                      onBlur={(e) =>
+                        e.target.value !== (channel.wa_phone_id || "") &&
+                        patch({ phone_number_id: e.target.value.trim() }, res.channelUpdated)
+                      }
+                    />
+                  </Field>
 
-                {/* Meta has no setWebhook API — these two get pasted by hand. */}
-                <CopyBox label={p.fields.callbackUrl} value={webhookUrl} />
-                <CopyBox label={p.fields.verifyToken} value={channel.verify_token || ""} />
-                <Hint>{p.whatsappHelp}</Hint>
+                  <SecretField
+                    label={p.fields.waAppSecret}
+                    placeholder={p.fields.waAppSecretPlaceholder}
+                    saved={channel.has_app_secret}
+                    hint="••••••••"
+                    pending={updateChannel.isPending}
+                    p={p}
+                    onSave={(v) => patch({ app_secret: v }, res.tokenSaved)}
+                  />
+
+                  {/* Meta has no setWebhook API, so without the one-click flow
+                      these two get pasted by hand. */}
+                  <CopyBox label={p.fields.callbackUrl} value={webhookUrl} />
+                  <CopyBox label={p.fields.verifyToken} value={channel.verify_token || ""} />
+                  <Hint>{p.whatsappHelp}</Hint>
+                </Collapse>
 
                 <Button
                   variant="ghost"
@@ -470,7 +530,74 @@ function ChannelCard({ channel, personas, p, res, base }) {
                   {verifyWhatsApp.isPending ? (
                     <LoaderIcon className="size-3.5 animate-spin" />
                   ) : (
-                    <MessageCircleIcon className="size-3.5" />
+                    <WhatsAppIcon className="size-3.5" />
+                  )}
+                  {p.checkConnection}
+                </Button>
+              </>
+            )}
+
+            {type === "instagram" && (
+              <>
+                {igSignup?.available && (
+                  <InstagramConnect channel={channel} signup={igSignup} p={p} />
+                )}
+
+                <Collapse open={!igSignup?.available} label={p.instagramSignup.manual}>
+                  <SecretField
+                    label={p.fields.igToken}
+                    placeholder={p.fields.igTokenPlaceholder}
+                    saved={channel.has_token}
+                    hint={channel.token_hint}
+                    pending={updateChannel.isPending}
+                    p={p}
+                    onSave={(v) => patch({ access_token: v }, res.tokenSaved)}
+                  />
+
+                  <Field label={p.fields.igAccountId}>
+                    <Input
+                      defaultValue={channel.ig_id || ""}
+                      placeholder={p.fields.igAccountIdPlaceholder}
+                      onBlur={(e) =>
+                        e.target.value !== (channel.ig_id || "") &&
+                        patch({ ig_id: e.target.value.trim() }, res.channelUpdated)
+                      }
+                    />
+                  </Field>
+
+                  <SecretField
+                    label={p.fields.waAppSecret}
+                    placeholder={p.fields.waAppSecretPlaceholder}
+                    saved={channel.has_app_secret_ig}
+                    hint="••••••••"
+                    pending={updateChannel.isPending}
+                    p={p}
+                    onSave={(v) => patch({ app_secret: v }, res.tokenSaved)}
+                  />
+
+                  {/* Meta has no setWebhook API, so without the one-click flow
+                      these two get pasted by hand. */}
+                  <CopyBox label={p.fields.callbackUrl} value={webhookUrl} />
+                  <CopyBox label={p.fields.verifyToken} value={channel.verify_token || ""} />
+                  <Hint>{p.instagramHelp}</Hint>
+                </Collapse>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={verifyInstagram.isPending || !channel.has_token}
+                  onClick={() =>
+                    verifyInstagram.mutate(channel.id, {
+                      onSuccess: (r) =>
+                        r?.success === false ? showError(r.message) : showSuccess(r.message),
+                      onError: () => showError(res.channelUpdateError),
+                    })
+                  }
+                >
+                  {verifyInstagram.isPending ? (
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <InstagramIcon className="size-3.5" />
                   )}
                   {p.checkConnection}
                 </Button>
@@ -565,7 +692,102 @@ function ChannelCard({ channel, personas, p, res, base }) {
                 </div>
               </div>
 
-              {/* 2 — pick a look */}
+              {/* 2 — the launcher itself */}
+              <div>
+                <p className="text-[13px] font-medium text-fg mb-1">{p.look.launcher}</p>
+                <Hint className="mb-3">{p.look.launcherHint}</Hint>
+
+                <div className="flex gap-2.5 mb-4">
+                  {[
+                    { value: "orb", label: p.look.styleOrb },
+                    { value: "button", label: p.look.styleButton },
+                  ].map((o) => {
+                    const on = (config.launcherStyle || "orb") === o.value;
+                    return (
+                      <button
+                        key={o.value}
+                        type="button"
+                        onClick={() => setCfg("launcherStyle", o.value)}
+                        className={cn(
+                          "flex-1 max-w-[168px] rounded-module border px-3 py-3 flex items-center gap-3 transition-colors cursor-pointer",
+                          on ? "border-fg bg-secondary-transparent2" : "border-border hover:border-border-hover",
+                        )}
+                      >
+                        {o.value === "orb" ? (
+                          <Orb
+                            accent={config.accent || "#c9ced6"}
+                            accent2={config.accent2}
+                            motion={config.orbMotion}
+                            size={30}
+                            live={on}
+                          />
+                        ) : (
+                          <span
+                            className="size-[30px] rounded-full grid place-items-center shrink-0"
+                            style={{ background: config.accent || "#c9ced6" }}
+                          >
+                            <BotIcon shape={config.avatarShape} accent={config.accent} size={16} bare />
+                          </span>
+                        )}
+                        <span className="text-[12px] text-fg text-left">{o.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(config.launcherStyle || "orb") !== "button" && (
+                  <div className="space-y-4 animate-fade">
+                    <div>
+                      <p className="text-[12px] text-secondary mb-2">{p.look.orbPresets}</p>
+                      <div className="flex gap-2.5 flex-wrap">
+                        {ORB_PRESETS.map((o) => {
+                          const on =
+                            (config.accent || "").toLowerCase() === o.accent.toLowerCase() &&
+                            (config.accent2 || "") === o.accent2;
+                          return (
+                            <button
+                              key={o.key}
+                              type="button"
+                              title={p.look.orbNames[o.key]}
+                              aria-label={p.look.orbNames[o.key]}
+                              onClick={() => setConfig((c) => ({ ...c, accent: o.accent, accent2: o.accent2 }))}
+                              className={cn(
+                                "rounded-full p-1 transition-transform cursor-pointer",
+                                on ? "ring-2 ring-fg ring-offset-2 ring-offset-[var(--color-card)]" : "hover:scale-110",
+                              )}
+                            >
+                              <Orb accent={o.accent} accent2={o.accent2} motion="still" size={30} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <Field label={p.look.motion}>
+                      <Segmented
+                        value={config.orbMotion || "alive"}
+                        onChange={(v) => setCfg("orbMotion", v)}
+                        options={[
+                          { value: "alive", label: p.look.motionAlive },
+                          { value: "calm", label: p.look.motionCalm },
+                          { value: "still", label: p.look.motionStill },
+                        ]}
+                        className="w-fit"
+                      />
+                      <Hint>{p.look.motionHint}</Hint>
+                    </Field>
+
+                    <Toggle
+                      checked={config.orbGlow !== false}
+                      onChange={(v) => setCfg("orbGlow", v)}
+                      label={p.look.glow}
+                      hint={p.look.glowHint}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 3 — pick a look */}
               <div>
                 <p className="text-[13px] font-medium text-fg mb-1">{p.look.presets}</p>
                 <Hint className="mb-3">{p.look.presetsHint}</Hint>
@@ -653,14 +875,33 @@ function ChannelCard({ channel, personas, p, res, base }) {
                 </summary>
                 <div className="pt-4 space-y-4">
                   <Hint>{p.look.fineTuneHint}</Hint>
-                  <ColorField label={p.look.accent} value={config.accent} fallback="#00d26a" onChange={(v) => setCfg("accent", v)} swatches={SWATCHES} />
+                  <ColorField label={p.look.accent} value={config.accent} fallback="#c9ced6" onChange={(v) => setCfg("accent", v)} swatches={SWATCHES} />
+                  <ColorField
+                    label={p.look.accent2}
+                    value={config.accent2}
+                    fallback="#8b8b96"
+                    onChange={(v) => setCfg("accent2", v)}
+                    swatches={["#a78bfa", "#22d3ee", "#ff4d8d", "#8b8b96"]}
+                  />
+                  <Hint className="-mt-2">{p.look.accent2Hint}</Hint>
                   <ColorField label={p.look.panelBg} value={config.panelBg} fallback={themeDefaults.panelBg} onChange={(v) => setCfg("panelBg", v)} swatches={["#0a0a0c", "#14141a", "#0b1622", "#ffffff", "#fdfaf6"]} />
                   <ColorField label={p.look.panelText} value={config.panelText} fallback={themeDefaults.panelText} onChange={(v) => setCfg("panelText", v)} swatches={["#f4f4f6", "#c9c9d1", "#14141a", "#3a3a44"]} />
                   <ColorField label={p.look.panelSurface} value={config.panelSurface} fallback={themeDefaults.panelSurface} onChange={(v) => setCfg("panelSurface", v)} swatches={["#1c1c22", "#16293d", "#f1f1f4", "#eeeef1"]} />
                   <Field label={p.look.theme}>
                     <Segmented
                       value={config.theme || "dark"}
-                      onChange={(v) => setCfg("theme", v)}
+                      onChange={(v) =>
+                        // Picking a theme that then does nothing is worse than
+                        // having no themes: explicit panel colours set earlier
+                        // would silently win. Choosing a theme clears them.
+                        setConfig((c) => ({
+                          ...c,
+                          theme: v,
+                          panelBg: null,
+                          panelText: null,
+                          panelSurface: null,
+                        }))
+                      }
                       options={[
                         { value: "dark", label: p.look.dark },
                         { value: "light", label: p.look.light },
@@ -683,6 +924,10 @@ function ChannelCard({ channel, personas, p, res, base }) {
                         offset: Number(config.offset) || 20,
                         autoOpenDelay: Number(config.autoOpenDelay) || 8,
                         avatarShape: config.avatarShape || "bot",
+                        launcherStyle: config.launcherStyle || "orb",
+                        orbMotion: config.orbMotion || "alive",
+                        orbGlow: config.orbGlow !== false,
+                        accent2: config.accent2 || "",
                       },
                     },
                     res.channelUpdated,
@@ -761,9 +1006,10 @@ function WidgetPreview({ config, channel, p }) {
   const text = config.panelText || theme.panelText;
   const surface = config.panelSurface || theme.panelSurface;
   const border = theme.panelBorder;
-  const accent = config.accent || "#00d26a";
+  const accent = config.accent || "#c9ced6";
   const size = Math.max(36, Math.min(Number(config.size) || 56, 72)) * 0.6;
   const edge = (Number(config.offset) || 20) * 0.5;
+  const orb = (config.launcherStyle || "orb") !== "button";
 
   return (
     <div className="laptop-2:sticky laptop-2:top-4">
@@ -830,19 +1076,45 @@ function WidgetPreview({ config, channel, p }) {
           </div>
         )}
 
-        <div
-          className="absolute rounded-full grid place-items-center shadow-lg"
-          style={{
-            background: accent, color: bg, height: size, minWidth: size,
-            padding: config.launcherLabel ? "0 10px" : 0,
-            bottom: edge, [left ? "left" : "right"]: edge,
-          }}
-        >
-          <span className="text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 px-0.5">
-            <BotIcon shape={config.avatarShape} accent={accent} size={16} bare />
-            {config.launcherLabel}
-          </span>
-        </div>
+        {/* The launcher, drawn the way the visitor will actually see it —
+            a flat circle here meant the orb could only be judged live. */}
+        {orb ? (
+          <div
+            className={cn(
+              "absolute flex items-center gap-2",
+              config.launcherLabel &&
+                "px-2 py-1 pr-3 rounded-full bg-[rgba(20,20,24,.72)] backdrop-blur-sm shadow-lg",
+            )}
+            style={{ bottom: edge, [left ? "left" : "right"]: edge }}
+          >
+            <Orb
+              accent={accent}
+              accent2={config.accent2}
+              motion={config.orbMotion}
+              size={config.launcherLabel ? size * 0.72 : size}
+              live={config.orbGlow !== false}
+            />
+            {config.launcherLabel && (
+              <span className="text-[10px] font-semibold text-white whitespace-nowrap">
+                {config.launcherLabel}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div
+            className="absolute rounded-full grid place-items-center shadow-lg"
+            style={{
+              background: accent, color: bg, height: size, minWidth: size,
+              padding: config.launcherLabel ? "0 10px" : 0,
+              bottom: edge, [left ? "left" : "right"]: edge,
+            }}
+          >
+            <span className="text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 px-0.5">
+              <BotIcon shape={config.avatarShape} accent={accent} size={16} bare />
+              {config.launcherLabel}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

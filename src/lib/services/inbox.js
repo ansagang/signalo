@@ -26,7 +26,55 @@ export async function listConversations(supabase, userId, filters = {}) {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+
+  return withPreviews(supabase, data || []);
+}
+
+/**
+ * Attach each conversation's last message.
+ *
+ * A list of names and timestamps says nothing about which conversation needs
+ * attention — the last line does. PostgREST has no DISTINCT ON, so rather
+ * than one query per row this asks for every message newer than the oldest
+ * conversation on the page and keeps the first one seen per conversation.
+ *
+ * `last_message_at` is the newest message in a conversation, so that window
+ * is guaranteed to contain every preview we need. The row cap only ever cuts
+ * the oldest end — the bottom of a very busy page loses its preview, never
+ * the top, which is what anyone is actually looking at.
+ */
+async function withPreviews(supabase, conversations) {
+  if (!conversations.length) return conversations;
+
+  const ids = conversations.map((c) => c.id);
+  const since = conversations
+    .map((c) => c.last_message_at)
+    .filter(Boolean)
+    .sort()[0];
+
+  let query = supabase
+    .from("messages")
+    .select("conversation_id, role, content, created_at")
+    .in("conversation_id", ids)
+    .order("created_at", { ascending: false })
+    .limit(3000);
+
+  if (since) query = query.gte("created_at", since);
+
+  const { data: messages } = await query;
+
+  const latest = new Map();
+  for (const m of messages || []) {
+    if (!latest.has(m.conversation_id)) latest.set(m.conversation_id, m);
+  }
+
+  return conversations.map((c) => {
+    const last = latest.get(c.id);
+    return {
+      ...c,
+      preview: last ? { role: last.role, content: (last.content || "").slice(0, 160) } : null,
+    };
+  });
 }
 
 export async function getConversation(supabase, userId, id) {

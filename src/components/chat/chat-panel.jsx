@@ -23,7 +23,7 @@ export default function ChatPanel({
   greeting,
   personaName = "Assistant",
   botShape = "bot",
-  botAccent = "#00d26a",
+  botAccent = "#c9ced6",
   placeholder = "Type a message…",
   className,
   onEvent,
@@ -234,7 +234,7 @@ export default function ChatPanel({
         {messages.map((msg, i) => {
           if (msg.role === "cards") {
             return (
-              <div key={msg.id || i} className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1">
+              <div key={msg.id || i} className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 animate-rise">
                 {msg.cards.map((card) => (
                   <ItemCard key={`${card.kind}-${card.id}`} card={card} />
                 ))}
@@ -270,15 +270,17 @@ export default function ChatPanel({
 
           const mine = msg.role === "customer";
           return (
-            <div key={msg.id || i} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+            <div key={msg.id || i} className={cn("flex animate-rise", mine ? "justify-end" : "justify-start")}>
               <div
                 className={cn(
-                  "max-w-[85%] rounded-button px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words",
+                  // A tail on the corner nearest its author reads as speech
+                  // rather than as a list of boxes.
+                  "max-w-[85%] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words rounded-[16px] shadow-sm",
                   mine
-                    ? "bg-accent text-primary font-medium mix-blend-normal"
+                    ? "bg-accent text-primary font-medium rounded-br-[5px]"
                     : msg.agent
-                      ? "bg-info/15 border border-info/35 text-fg"
-                      : "bg-secondary-transparent2 border border-secondary-transparent text-fg",
+                      ? "bg-info/15 border border-info/35 text-fg rounded-bl-[5px]"
+                      : "bg-secondary-transparent2 border border-secondary-transparent text-fg rounded-bl-[5px]",
                 )}
               >
                 {msg.content || (
@@ -292,9 +294,11 @@ export default function ChatPanel({
         })}
 
         {activeTool && (
-          <div className="flex items-center gap-2 text-[11px] text-muted px-1">
+          <div className="flex items-center gap-2 text-[11px] text-muted px-1 animate-fade">
             <LoaderIcon className="size-3 animate-spin" />
-            {activeTool}…
+            <span className="relative overflow-hidden">
+              {activeTool}…
+            </span>
           </div>
         )}
 
@@ -310,7 +314,7 @@ export default function ChatPanel({
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-secondary-transparent p-3 flex items-end gap-2 shrink-0"
+        className="border-t border-secondary-transparent p-3 flex items-end gap-2 shrink-0 bg-bg"
       >
         <textarea
           rows={1}
@@ -324,13 +328,13 @@ export default function ChatPanel({
           }}
           placeholder={placeholder}
           disabled={busy}
-          className="flex-1 resize-none bg-secondary-transparent2 border border-secondary-transparent rounded-button px-3 py-2.5 text-[13px] text-fg placeholder:text-muted outline-none focus:border-secondary/50 max-h-28 disabled:opacity-60"
+          className="flex-1 resize-none bg-secondary-transparent2 border border-secondary-transparent rounded-[14px] px-3.5 py-2.5 text-[13px] text-fg placeholder:text-muted outline-none transition-colors focus:border-accent/45 max-h-28 disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
           aria-label="Send"
-          className="size-9 shrink-0 rounded-button bg-accent text-primary grid place-items-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+          className="size-9 shrink-0 rounded-full bg-accent text-primary grid place-items-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95"
         >
           {busy ? <LoaderIcon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
         </button>

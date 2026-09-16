@@ -8,7 +8,11 @@
   --color-secondary:             #9a9aa3;
   --color-secondary-transparent: rgba(255, 255, 255, 0.12);
   --color-secondary-transparent2: rgba(255, 255, 255, 0.055);
-  --color-accent:                #00d26a;
+  /* The logo is three rounded squares in a silver gradient, so the accent is
+     platinum rather than a colour. Green stays, but only where it means
+     "good" — success badges, not brand. */
+  --color-accent:                #c9ced6;
+  --color-accent-deep:           #6b7078;
   --color-bg:                    #0a0a0c;
   --color-fg:                    #f4f4f6;
 
@@ -318,4 +322,39 @@
   .background-noise{
     @apply absolute w-full h-full inset-0 opacity-[0.1] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PGZlQ29sb3JNYXRyaXggdHlwZT0ic2F0dXJhdGUiIHZhbHVlcz0iMCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]
   }
+}
+
+/* ── motion ──────────────────────────────────────────────────────────────
+   Named once so the widget, the dashboard and the landing all move the same
+   way. Durations are short enough to feel like response, not decoration. */
+
+@keyframes orbSpin { to { transform: rotate(360deg); } }
+/* Opacity only. Scaling a blurred layer re-rasterises it every frame, which
+   is what made the orb stutter on modest hardware. */
+@keyframes orbBreathe {
+  0%, 100% { opacity: .45; }
+  50%      { opacity: .8; }
+}
+
+/* A message arriving: rises and settles, never slides sideways. */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* A panel opening from its launcher, anchored bottom-right. */
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(12px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+.animate-rise { animation: riseIn .28s cubic-bezier(.2, .9, .3, 1.1) both; }
+.animate-pop  { animation: popIn  .26s cubic-bezier(.2, .9, .3, 1.15) both; }
+.animate-fade { animation: fadeIn .2s ease both; }
+
+/* Someone who asked for less motion gets the result, not the journey. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise, .animate-pop, .animate-fade { animation: none; }
+  [class*="orbSpin"], [class*="orbBreathe"] { animation: none !important; }
 }

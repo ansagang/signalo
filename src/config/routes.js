@@ -4,6 +4,7 @@ export const routes = [
         routes: [
             '/dashboard',
             '/dashboard/conversations',
+            '/dashboard/setup',
             '/dashboard/catalogue',
             '/dashboard/bookings',
             '/dashboard/knowledge-base',

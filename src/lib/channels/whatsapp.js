@@ -6,6 +6,9 @@
  * POST really came from Meta.
  */
 
+// Shared with Instagram — both products sign webhooks identically.
+export { verifyMetaSignature as verifySignature } from "./meta.js";
+
 const GRAPH = "https://graph.facebook.com/v21.0";
 
 async function graph({ token, phoneNumberId, body }) {
@@ -57,23 +60,6 @@ export function markReadAndTyping({ token, phoneNumberId, messageId }) {
       typing_indicator: { type: "text" },
     }),
   }).catch(() => {});
-}
-
-/**
- * Verify Meta's X-Hub-Signature-256 over the raw body.
- *
- * Node's timingSafeEqual throws on length mismatch, hence the length guard
- * before the comparison.
- */
-export async function verifySignature({ appSecret, rawBody, header }) {
-  if (!appSecret) return true; // not configured — the channel id is the only gate
-  if (!header?.startsWith("sha256=")) return false;
-
-  const { createHmac, timingSafeEqual } = await import("crypto");
-  const expected = createHmac("sha256", appSecret).update(rawBody).digest("hex");
-  const got = header.slice("sha256=".length);
-  if (got.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(got, "utf8"), Buffer.from(expected, "utf8"));
 }
 
 /** `whatsapp:<channelId>:<wa_id>` → the customer's phone number. */

@@ -94,7 +94,17 @@ export default function BillingView({ language, data }) {
 
   return (
     <div className="space-y-8">
-      {data.lowBalance && (
+      {data.outOfCredits && (
+        <Panel className="p-4 flex items-start gap-3 bg-error/5 border-error/30">
+          <AlertTriangleIcon className="size-4 text-error shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[13px] font-medium text-fg mb-1">{p.out.title}</p>
+            <Hint>{p.out.body}</Hint>
+          </div>
+        </Panel>
+      )}
+
+      {!data.outOfCredits && data.lowBalance && (
         <Panel className="p-4 flex items-start gap-3 bg-warning/5 border-warning/30">
           <AlertTriangleIcon className="size-4 text-warning shrink-0 mt-0.5" />
           <div>
@@ -140,6 +150,41 @@ export default function BillingView({ language, data }) {
         <Split title={p.byChannel} rows={data.byChannel} total={data.spent} empty={p.noUsage} />
         <Split title={p.byModel} rows={data.byModel} total={data.spent} empty={p.noUsage} />
       </div>
+
+      <Section title={p.plans.title} description={p.plans.subtitle}>
+        <div className="grid gap-3 tablet:grid-cols-3">
+          {data.plans.map((plan) => {
+            const current = data.subscription?.plan_key === plan.key;
+            return (
+              <Panel
+                key={plan.key}
+                className={cn("p-5 flex flex-col", current && "border-accent/50 bg-accent/5")}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] font-semibold text-fg">{plan.name}</p>
+                  {current && <Badge className="bg-accent/15 text-accent">{p.plans.current}</Badge>}
+                </div>
+                <p className="mt-2 text-[24px] font-semibold tracking-[-0.02em] text-fg">
+                  ${(plan.price_cents / 100).toFixed(0)}
+                  <span className="text-[13px] font-normal text-muted"> {p.plans.perMonth}</span>
+                </p>
+                <p className="mt-2 text-[12px] text-secondary leading-relaxed">{plan.blurb}</p>
+                <div className="mt-4 pt-3 border-t border-secondary-transparent text-[12px] text-secondary space-y-1">
+                  <p>{p.plans.included.replace("{n}", nf.format(plan.credits))}</p>
+                  <p className="text-muted">{p.plans.roughly.replace("{n}", nf.format(Math.floor(plan.credits / (plan.model_key === "claude-haiku" ? 1.4 : 4.1))))}</p>
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
+        {data.subscription ? (
+          <Hint className="mt-3">
+            {p.plans.renews.replace("{date}", when(data.subscription.current_period_end))}
+          </Hint>
+        ) : (
+          <Hint className="mt-3">{p.plans.noPlan}</Hint>
+        )}
+      </Section>
 
       <Section title={p.history.title} description={p.history.subtitle}>
         {!data.transactions.length ? (

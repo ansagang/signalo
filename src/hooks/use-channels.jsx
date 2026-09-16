@@ -8,6 +8,7 @@ import {
   connectTelegram,
   verifyWhatsApp,
   verifyEmail,
+  verifyInstagram,
 } from "@/actions/channels";
 
 export function useChannels() {
@@ -30,6 +31,7 @@ export const useRotateKey = invalidating(rotatePublicKey);
 export const useConnectTelegram = invalidating(connectTelegram);
 export const useVerifyWhatsApp = invalidating(verifyWhatsApp);
 export const useVerifyEmail = invalidating(verifyEmail);
+export const useVerifyInstagram = invalidating(verifyInstagram);
 
 export function useUpdateChannel() {
   const qc = useQueryClient();

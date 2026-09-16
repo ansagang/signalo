@@ -1,26 +1,19 @@
 import { DEFAULT_TZ } from "@/lib/timezone";
 import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
 import { resolveModel } from "./models";
 import { retrieveContext, formatContext } from "./retrieval";
 import { buildPersonaPrompt, buildContextPrompt } from "./persona";
-import { anthropicTools, openaiTools, runTool } from "./tools";
-import { recordUsage } from "@/lib/services/billing";
+import { anthropicTools, runTool } from "./tools";
+import { recordUsage, canSpend } from "@/lib/services/billing";
 
 const MAX_TOOL_TURNS = 5;
 const HISTORY_LIMIT = 24;
 
 let _anthropic;
-let _openai;
 
 function anthropic() {
   if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   return _anthropic;
-}
-
-function openai() {
-  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return _openai;
 }
 
 /* ────────────────────────── conversation state ────────────────────────── */
@@ -149,12 +142,15 @@ async function* streamAnthropic({ model, system, messages, persona, ctx, meter }
 
     const message = await stream.finalMessage();
 
-    // Every turn of the tool loop is its own billable call.
+    // Every turn of the tool loop is its own billable call. Cache reads and
+    // writes are priced differently, so they are counted separately.
     if (message.usage) {
-      meter.add(
-        message.usage.input_tokens + (message.usage.cache_read_input_tokens || 0),
-        message.usage.output_tokens,
-      );
+      meter.add({
+        input: message.usage.input_tokens,
+        output: message.usage.output_tokens,
+        cacheWrite: message.usage.cache_creation_input_tokens,
+        cacheRead: message.usage.cache_read_input_tokens,
+      });
     }
 
     if (message.stop_reason === "refusal") {
@@ -192,99 +188,32 @@ async function* streamAnthropic({ model, system, messages, persona, ctx, meter }
   return fullText;
 }
 
-async function* streamOpenAI({ model, system, messages, persona, ctx, meter }) {
-  const client = openai();
-  const tools = openaiTools();
-  const systemText = Array.isArray(system)
-    ? system.map((b) => b.text).join("\n\n")
-    : system;
-
-  const convo = [
-    { role: "system", content: systemText },
-    ...messages.map((m) => ({
-      role: m.role,
-      content: typeof m.content === "string" ? m.content : "",
-    })),
-  ];
-  let fullText = "";
-
-  for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-    const stream = await client.chat.completions.create({
-      model: model.id,
-      max_tokens: Math.min(Math.max(Number(persona.max_tokens) || 1024, 256), 8192),
-      temperature: Number(persona.temperature ?? 0.7),
-      messages: convo,
-      tools,
-      stream: true,
-      // Without this the usage block never arrives and the call bills as zero.
-      stream_options: { include_usage: true },
-    });
-
-    let text = "";
-    const calls = [];
-    let finish = null;
-    let firstTextOfTurn = true;
-
-    for await (const chunk of stream) {
-      if (chunk.usage) {
-        meter.add(chunk.usage.prompt_tokens || 0, chunk.usage.completion_tokens || 0);
-      }
-      const choice = chunk.choices?.[0];
-      if (!choice) continue;
-      if (choice.finish_reason) finish = choice.finish_reason;
-
-      const delta = choice.delta || {};
-      if (delta.content) {
-        // Same turn-boundary break as the Anthropic loop.
-        if (firstTextOfTurn && fullText && !/\s$/.test(fullText)) {
-          fullText += "\n\n";
-          yield { type: "delta", text: "\n\n" };
-        }
-        firstTextOfTurn = false;
-
-        text += delta.content;
-        fullText += delta.content;
-        yield { type: "delta", text: delta.content };
-      }
-
-      for (const tc of delta.tool_calls || []) {
-        const slot = (calls[tc.index] ||= { id: "", name: "", args: "" });
-        if (tc.id) slot.id = tc.id;
-        if (tc.function?.name) slot.name = tc.function.name;
-        if (tc.function?.arguments) slot.args += tc.function.arguments;
-      }
-    }
-
-    if (finish !== "tool_calls" || !calls.length) break;
-
-    convo.push({
-      role: "assistant",
-      content: text || null,
-      tool_calls: calls.map((c) => ({
-        id: c.id,
-        type: "function",
-        function: { name: c.name, arguments: c.args || "{}" },
-      })),
-    });
-
-    for (const call of calls) {
-      yield { type: "tool", name: call.name };
-      let input = {};
-      try {
-        input = JSON.parse(call.args || "{}");
-      } catch {
-        input = {};
-      }
-      const output = await runTool(call.name, input, ctx);
-      convo.push({
-        role: "tool",
-        tool_call_id: call.id,
-        content: JSON.stringify(output),
-      });
+/**
+ * What the assistant actually did this turn, in a form the inbox can show.
+ *
+ * A transcript that reads "Sure, you're booked!" with nothing behind it makes
+ * an operator open the calendar to check. Recording the real outcome next to
+ * the reply means the conversation itself says whether a booking exists.
+ *
+ * Only outcomes, never the card carousel — that is already visible as the
+ * message it decorates.
+ */
+function actionsFrom(events) {
+  const actions = [];
+  for (const e of events) {
+    if (e.type === "appointment" && e.appointment) {
+      actions.push({ kind: "booked", at: e.appointment.starts_at, id: e.appointment.id });
+    } else if (e.type === "rescheduled" && e.appointment) {
+      actions.push({ kind: "moved", at: e.appointment.starts_at, id: e.appointment.id });
+    } else if (e.type === "cancelled" && e.appointment) {
+      actions.push({ kind: "cancelled", at: e.appointment.starts_at, id: e.appointment.id });
+    } else if (e.type === "order" && e.order) {
+      actions.push({ kind: "order", total: e.order.total, currency: e.order.currency, id: e.order.id });
+    } else if (e.type === "handoff") {
+      actions.push({ kind: "handoff", reason: e.reason || null });
     }
   }
-
-  return fullText;
+  return actions.length ? actions : undefined;
 }
 
 /* ─────────────────────────────── entrypoint ───────────────────────────── */
@@ -331,6 +260,25 @@ export async function* runChat({
     content: userMessage,
     channel,
   });
+
+  // Out of credits: record what the customer said, hand the conversation to a
+  // human and stop. Ignoring them is what loses the sale, not the unpaid bill.
+  const spend = await canSpend(supabase, userId);
+  if (!spend.ok) {
+    await supabase
+      .from("conversations")
+      .update({
+        handoff: true,
+        handoff_at: new Date().toISOString(),
+        status: "escalated",
+        last_intent: "out_of_credits",
+      })
+      .eq("id", conversation.id);
+
+    yield { type: "paused", reason: "out_of_credits", balance: spend.balance };
+    yield { type: "done", text: "", conversation_id: conversation.id, paused: true };
+    return;
+  }
 
   const history = await loadHistory(supabase, conversation.id);
 
@@ -388,13 +336,17 @@ export async function* runChat({
 
   // Tokens add up across every turn of the tool loop, then bill once.
   const meter = {
-    input: 0, output: 0,
-    add(input, output) { this.input += input || 0; this.output += output || 0; },
+    input: 0, output: 0, cacheWrite: 0, cacheRead: 0,
+    add({ input, output, cacheWrite, cacheRead } = {}) {
+      this.input += input || 0;
+      this.output += output || 0;
+      this.cacheWrite += cacheWrite || 0;
+      this.cacheRead += cacheRead || 0;
+    },
   };
 
   const args = { model, system, messages: history, persona, ctx, meter };
-  const iterator =
-    model.provider === "openai" ? streamOpenAI(args) : streamAnthropic(args);
+  const iterator = streamAnthropic(args);
 
   let text = "";
   try {
@@ -420,7 +372,7 @@ export async function* runChat({
       role: "assistant",
       content: text,
       channel,
-      metadata: { model: model.id },
+      metadata: { model: model.id, actions: actionsFrom(events) },
     });
   }
 
@@ -432,12 +384,14 @@ export async function* runChat({
   // Charge last, and never let billing break a conversation that already
   // happened — an unrecorded credit is cheaper than a lost customer.
   let charged = null;
-  if (meter.input || meter.output) {
+  if (meter.input || meter.output || meter.cacheRead) {
     try {
       charged = await recordUsage(supabase, userId, {
         model: model.id,
         inputTokens: meter.input,
         outputTokens: meter.output,
+        cacheWriteTokens: meter.cacheWrite,
+        cacheReadTokens: meter.cacheRead,
         kind: "chat",
         conversationId: conversation.id,
         channel,

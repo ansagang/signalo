@@ -1,6 +1,7 @@
 "use server"
 
 import { entryToText, generateEmbedding } from "@/lib/ai/embeddings";
+import { readPage } from "@/lib/knowledge/ingest";
 import { createClient } from "@/lib/supabase/server"
 
 export async function getPersona(id) {
@@ -191,4 +192,54 @@ export async function deleteKnowledgeEntry(id) {
         .eq("user_id", user.id);
 
     if (error) throw error;
+}
+
+/**
+ * Import a page into the knowledge base.
+ *
+ * One entry per readable chunk, each embedded so retrieval can find it. The
+ * page is fetched here rather than in the browser: a seller's site may not
+ * allow cross-origin reads, and the URL should never be trusted from a client.
+ */
+export async function importKnowledgeFromUrl(url, { personaId = null } = {}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, message: "Unauthorized" };
+
+    let page;
+    try {
+        page = await readPage(url);
+    } catch (err) {
+        return { success: false, message: err?.message || "Could not read that page." };
+    }
+
+    // A page that produced a hundred fragments is a sitemap, not a policy.
+    const chunks = page.chunks.slice(0, 40);
+    const rows = [];
+
+    for (const [index, content] of chunks.entries()) {
+        const title = chunks.length > 1
+            ? `${page.title} (${index + 1}/${chunks.length})`
+            : page.title;
+        const entry = {
+            type: "faq",
+            title,
+            content,
+            keywords: "",
+            priority: 5,
+            metadata: { source: page.url, imported: true },
+        };
+        rows.push({
+            ...entry,
+            user_id: user.id,
+            persona_id: personaId,
+            active: true,
+            embedding: await generateEmbedding(entryToText(entry)),
+        });
+    }
+
+    const { error } = await supabase.from("knowledge_entries").insert(rows);
+    if (error) return { success: false, message: error.message };
+
+    return { success: true, imported: rows.length, title: page.title, url: page.url };
 }

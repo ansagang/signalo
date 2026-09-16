@@ -44,7 +44,13 @@ for (const path of PAGES) {
   const problems = [];
   page.on('console', m => { if (m.type() === 'error' && !IGNORE.test(m.text())) problems.push(m.text().slice(0, 150)); });
   page.on('pageerror', e => problems.push(`UNCAUGHT ${e.message.slice(0, 150)}`));
-  page.on('requestfailed', r => { if (!IGNORE.test(r.url())) problems.push(`REQUEST ${r.url().slice(-60)}`); });
+  // An aborted request is a cancellation, not a defect: `next start` cancels
+  // its own route prefetches constantly, and every page failed because of it.
+  page.on('requestfailed', r => {
+    const why = r.failure()?.errorText || '';
+    if (/ABORTED/i.test(why) || IGNORE.test(r.url())) return;
+    problems.push(`REQUEST ${r.url().slice(-60)} (${why})`);
+  });
 
   try {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle', timeout: 45000 });

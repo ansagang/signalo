@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import ChatPanel from "@/components/chat/chat-panel";
-import BotIcon from "@/components/ui/bot-icon";
+import Orb from "@/components/chat/orb";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +58,7 @@ export default async function PublicChatPage({ params }) {
   // borders and buttons all follow the seller's colours without each needing
   // its own override.
   const palette = {
-    "--color-accent": hex(config.accent) || "#00d26a",
+    "--color-accent": hex(config.accent) || "#c9ced6",
     "--color-bg": hex(config.panelBg) || theme.panelBg,
     "--color-fg": hex(config.panelText) || theme.panelText,
     "--color-secondary-transparent2": hex(config.panelSurface) || theme.panelSurface,
@@ -70,16 +70,33 @@ export default async function PublicChatPage({ params }) {
     // The accent chosen in the dashboard drives the whole panel, not just the
     // launcher — send button, customer bubbles and the header dot.
     <main className="h-dvh flex flex-col bg-bg" style={palette}>
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-secondary-transparent shrink-0">
-        <BotIcon shape={config.avatarShape} accent={palette["--color-accent"]} size={36} />
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-fg truncate">{title}</p>
-          <p className="text-[11px] opacity-75 flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+      {/* The orb from the launcher again, so the thing they clicked and the
+          thing now talking are obviously the same. */}
+      <header className="relative flex items-center gap-3 px-4 py-3.5 shrink-0 overflow-hidden">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-24 h-40 opacity-[0.18]"
+          style={{
+            background: `radial-gradient(60% 70% at 18% 100%, ${palette["--color-accent"]} 0%, transparent 70%)`,
+          }}
+        />
+        <Orb
+          accent={palette["--color-accent"]}
+          accent2={hex(config.accent2) || ""}
+          motion={config.orbMotion}
+          live={config.orbGlow !== false}
+          size={38}
+          className="relative"
+        />
+        <div className="min-w-0 relative">
+          <p className="text-[13.5px] font-semibold text-fg truncate leading-tight">{title}</p>
+          <p className="text-[11px] text-fg/55 flex items-center gap-1.5 mt-0.5">
+            <span className="size-1.5 rounded-full bg-accent" />
             {persona.name}
           </p>
         </div>
       </header>
+      <div className="h-px bg-gradient-to-r from-transparent via-[var(--color-secondary-transparent)] to-transparent shrink-0" />
 
       <ChatPanel
         publicKey={key}

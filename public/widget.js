@@ -34,9 +34,11 @@
   var origin = new URL(script.src, window.location.href).origin;
 
   var DEFAULTS = {
-    accent: "#00d26a", position: "right", offset: 20, size: 56, radius: 16,
+    accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 16,
     launcherLabel: "", title: "Chat", subtitle: "", avatarShape: "bot",
     autoOpen: false, autoOpenDelay: 8, theme: "dark", greetingBubble: "",
+    // The launcher's own look. accent2 empty means "derive it from accent".
+    launcherStyle: "orb", accent2: "", orbMotion: "alive", orbGlow: true,
   };
 
   function attr(name) {
@@ -56,12 +58,69 @@
     return l > 0.45 ? "#0a0a0c" : "#ffffff";
   }
 
+  /** "#00d26a" → [0,210,106]. Falls back to a mid grey rather than throwing. */
+  function rgb(hex) {
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return [120, 120, 130];
+    var h = m[1];
+    if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); });
+  }
+
+  /** Lighten (amount > 0) or darken (< 0) toward white/black. */
+  function shade(hex, amount) {
+    var c = rgb(hex);
+    var target = amount > 0 ? 255 : 0;
+    var t = Math.abs(amount);
+    return "rgb(" + c.map(function (v) {
+      return Math.round(v + (target - v) * t);
+    }).join(",") + ")";
+  }
+
+  function rgba(hex, alpha) {
+    return "rgba(" + rgb(hex).join(",") + "," + alpha + ")";
+  }
+
+  /**
+   * A second hue for the swirl.
+   *
+   * Rotating the accent around the colour wheel keeps the orb alive without
+   * asking the seller to pick two colours that go together.
+   */
+  function partner(hex) {
+    var c = rgb(hex).map(function (v) { return v / 255; });
+    var max = Math.max.apply(null, c), min = Math.min.apply(null, c);
+    var l = (max + min) / 2, d = max - min, h = 0, sat = 0;
+    if (d) {
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === c[0]) h = ((c[1] - c[2]) / d) % 6;
+      else if (max === c[1]) h = (c[2] - c[0]) / d + 2;
+      else h = (c[0] - c[1]) / d + 4;
+      h *= 60;
+    }
+    // A near-grey accent must stay grey. Forcing saturation here put a purple
+    // swirl inside a silver logo's orb.
+    if (sat < 0.16) return "hsl(" + Math.round(h) + ",6%," + Math.round(Math.min(l + 0.22, 0.92) * 100) + "%)";
+    return "hsl(" + Math.round((h + 48) % 360) + "," + Math.round(sat * 100) + "%,62%)";
+  }
+
+  /** Injected once; the orb is pure CSS so the widget stays dependency-free. */
+  function styleOnce(css) {
+    if (document.getElementById("signalo-style")) return;
+    var el = document.createElement("style");
+    el.id = "signalo-style";
+    el.textContent = css;
+    document.head.appendChild(el);
+  }
+
   function boot(config) {
     // data-* overrides whatever the dashboard says.
     var over = {
       accent: attr("accent"), position: attr("position"), title: attr("title"),
       launcherLabel: attr("label"), offset: attr("offset"), size: attr("size"),
       radius: attr("radius"), greetingBubble: attr("greeting"),
+      launcherStyle: attr("launcher"), accent2: attr("accent2"),
+      orbMotion: attr("motion"),
     };
     for (var k in over) if (over[k] !== undefined && over[k] !== "") config[k] = over[k];
 
@@ -72,19 +131,70 @@
     var open = false;
     var dismissedGreeting = false;
 
+    var orbMode = (config.launcherStyle || "orb") !== "button";
+    // The orb carries a gradient, a swirl and a glyph; under about 44px those
+    // read as mud. The classic button is happy small, so only clamp the orb.
+    var orbSize = Math.min(Math.max(size, 44), 96);
+    var hasLabel = Boolean(config.launcherLabel);
+    var accent2 = config.accent2 || partner(config.accent);
+
+    // How lively the orb is. "still" is not a lesser option — on a busy page a
+    // moving object in the corner is the thing people complain about.
+    var MOTION = { alive: 14, calm: 30, still: 0 };
+    var spin = MOTION[config.orbMotion] === undefined ? 14 : MOTION[config.orbMotion];
+    var glow = config.orbGlow !== false && spin > 0;
+
+    styleOnce([
+      "@keyframes sg-spin{to{transform:rotate(360deg)}}",
+      // The halo breathes rather than pulses: a heartbeat in the corner of the
+      // eye is distracting, a slow swell reads as alive.
+      "@keyframes sg-breathe{0%,100%{opacity:.45}50%{opacity:.8}}",
+      
+      ".sg-orb{position:relative;display:inline-flex;align-items:center;justify-content:center;border:none;",
+      "background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;",
+      "transition:transform .25s cubic-bezier(.2,.9,.3,1.2)}",
+      ".sg-orb:hover{transform:scale(1.05)}",
+      ".sg-orb:active{transform:scale(.97)}",
+      ".sg-orbwrap{position:relative;display:inline-block;flex:none}",
+      ".sg-ball{position:absolute;inset:0;border-radius:50%;overflow:hidden;isolation:isolate}",
+      ".sg-swirl{position:absolute;inset:-35%;opacity:.85;will-change:transform;transform:translateZ(0);",
+      spin ? "animation:sg-spin " + spin + "s linear infinite}" : "}",
+      
+      ".sg-gloss{position:absolute;inset:0;border-radius:50%;pointer-events:none}",
+      ".sg-rim{position:absolute;inset:0;border-radius:50%;pointer-events:none;",
+      "box-shadow:inset 0 1px 1px rgba(255,255,255,.45),inset 0 -8px 14px rgba(0,0,0,.28)}",
+      ".sg-halo{position:absolute;inset:-28%;border-radius:50%;filter:blur(14px);z-index:-1;",
+      "pointer-events:none;will-change:opacity;",
+      glow ? "animation:sg-breathe 5s ease-in-out infinite}" : "opacity:.5}",
+      ".sg-glyph{position:absolute;inset:0;display:grid;place-items:center;z-index:2;transition:opacity .2s}",
+      ".sg-pill{display:inline-flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;border-radius:999px;",
+      "backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}",
+      "@media (prefers-reduced-motion:reduce){.sg-swirl,.sg-halo{animation:none}}",
+    ].join(""));
+
     var launcher = document.createElement("button");
     launcher.type = "button";
     launcher.setAttribute("aria-label", config.title || "Chat");
-    launcher.style.cssText = [
-      "position:fixed", "bottom:" + offset + "px", side + ":" + offset + "px",
-      "min-width:" + size + "px", "height:" + size + "px",
-      "border-radius:" + Math.round(size / 2) + "px", "border:none", "cursor:pointer",
-      "background:" + config.accent, "box-shadow:0 6px 24px rgba(0,0,0,.28)",
-      "z-index:2147483646", "display:inline-flex", "align-items:center", "gap:8px",
-      "justify-content:center", "transition:transform .18s ease", "padding:0 " + (config.launcherLabel ? "18px" : "0"),
-      "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
-      "color:" + inkOn(config.accent),
-    ].join(";");
+    launcher.className = orbMode ? "sg-orb" : "";
+
+    if (orbMode) {
+      launcher.style.cssText = [
+        "position:fixed", "bottom:" + offset + "px", side + ":" + offset + "px",
+        "z-index:2147483646",
+        "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+      ].join(";");
+    } else {
+      launcher.style.cssText = [
+        "position:fixed", "bottom:" + offset + "px", side + ":" + offset + "px",
+        "min-width:" + size + "px", "height:" + size + "px",
+        "border-radius:" + Math.round(size / 2) + "px", "border:none", "cursor:pointer",
+        "background:" + config.accent, "box-shadow:0 6px 24px rgba(0,0,0,.28)",
+        "z-index:2147483646", "display:inline-flex", "align-items:center", "gap:8px",
+        "justify-content:center", "transition:transform .18s ease", "padding:0 " + (hasLabel ? "18px" : "0"),
+        "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
+        "color:" + inkOn(config.accent),
+      ].join(";");
+    }
 
     // The same shapes the dashboard offers. Generated from lucide-react by
     // scripts/gen-widget-shapes.mjs rather than drawn by hand: hand-traced
@@ -111,10 +221,10 @@
       rocket: '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/>',
     };
 
-    function shapeSvg(name, px) {
+    function shapeSvg(name, px, weight) {
       var body = SHAPES[name] || SHAPES.message;
       return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none" ' +
-        'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        'stroke="currentColor" stroke-width="' + (weight || 2) + '" stroke-linecap="round" stroke-linejoin="round">' +
         body + "</svg>";
     }
 
@@ -123,22 +233,93 @@
     var ICON_CLOSE =
       '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 
-    function paintLauncher() {
-      if (open) { launcher.innerHTML = ICON_CLOSE; return; }
-      // Proportional to the button: enough presence to read at a glance,
-      // with the circle still visible around it.
-      var glyph = Math.round(size * 0.52);
-      var avatar = config.avatarShape
-        ? shapeSvg(config.avatarShape, glyph)
+    /**
+     * The orb.
+     *
+     * A sphere lit from the top left, with a slow swirl and a drifting blob
+     * underneath so it reads as alive rather than as a spinner. Everything is
+     * derived from the seller's accent colour — they pick one colour and the
+     * rest follows.
+     */
+    function orbHtml(px) {
+      var light = shade(config.accent, 0.42);
+      var deep = shade(config.accent, -0.42);
+      var glyphPx = Math.round(px * 0.38);
+      var glyph = config.avatarShape
+        ? shapeSvg(config.avatarShape, glyphPx, 1.6)
         : config.avatar
-          ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
-          : ICON_CHAT;
-      launcher.innerHTML = avatar + (config.launcherLabel
-        ? '<span style="white-space:nowrap">' + config.launcherLabel + "</span>" : "");
+          ? '<span style="font-size:' + glyphPx + 'px;line-height:1">' + config.avatar + "</span>"
+          : "";
+
+      return (
+        '<span class="sg-orbwrap" style="width:' + px + "px;height:" + px + 'px">' +
+        (config.orbGlow === false ? "" :
+          '<span class="sg-halo" style="background:radial-gradient(circle,' +
+          rgba(config.accent, 0.85) + ' 0%,' + rgba(config.accent, 0) + ' 70%)"></span>') +
+        '<span class="sg-ball" style="width:' + px + "px;height:" + px + "px;" +
+          "background:radial-gradient(circle at 32% 26%," + light + " 0%," + config.accent + " 46%," + deep + " 100%);" +
+          "box-shadow:0 8px 28px " + rgba(config.accent, 0.4) + ",0 2px 8px rgba(0,0,0,.35)\">" +
+          '<span class="sg-swirl" style="background:conic-gradient(from 0deg,' +
+            rgba(config.accent, 0) + "," + accent2 + "," + rgba(config.accent, 0) + "," +
+            light + "," + rgba(config.accent, 0) + ')"></span>' +
+              '<span class="sg-gloss" style="background:radial-gradient(circle at 32% 22%,rgba(255,255,255,.85) 0%,rgba(255,255,255,.22) 24%,transparent 50%),' +
+            "radial-gradient(circle at 50% 118%,rgba(255,255,255,.28) 0%,transparent 42%)\"></span>" +
+          '<span class="sg-rim"></span>' +
+          (glyph ? '<span class="sg-glyph" style="color:rgba(255,255,255,.95);filter:drop-shadow(0 1px 2px ' +
+            rgba(config.accent, 0.55) + ')">' + glyph + "</span>" : "") +
+        "</span></span>"
+      );
     }
 
-    launcher.onmouseenter = function () { launcher.style.transform = "scale(1.06)"; };
-    launcher.onmouseleave = function () { launcher.style.transform = "scale(1)"; };
+    function paintLauncher() {
+      if (!orbMode) {
+        if (open) { launcher.innerHTML = ICON_CLOSE; return; }
+        // Proportional to the button: enough presence to read at a glance,
+        // with the circle still visible around it.
+        var glyph = Math.round(size * 0.52);
+        var avatar = config.avatarShape
+          ? shapeSvg(config.avatarShape, glyph)
+          : config.avatar
+            ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
+            : ICON_CHAT;
+        launcher.innerHTML = avatar + (hasLabel
+          ? '<span style="white-space:nowrap">' + config.launcherLabel + "</span>" : "");
+        return;
+      }
+
+      if (open) {
+        // Closing is a plain control, not a mood: the orb would keep drawing
+        // the eye to a window the visitor is already looking at.
+        launcher.className = "sg-orb";
+        launcher.innerHTML =
+          '<span class="sg-orbwrap" style="width:' + orbSize + "px;height:" + orbSize + 'px">' +
+          '<span class="sg-ball" style="display:grid;place-items:center;background:' +
+          shade(config.accent, -0.25) + ";color:" + inkOn(shade(config.accent, -0.25)) +
+          ';box-shadow:0 6px 20px rgba(0,0,0,.35)">' + ICON_CLOSE + "</span></span>";
+        return;
+      }
+
+      if (hasLabel) {
+        launcher.className = "sg-orb sg-pill";
+        launcher.style.background = "rgba(20,20,24,.72)";
+        launcher.style.boxShadow = "0 8px 30px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,255,255,.1)";
+        launcher.style.color = "#fff";
+        launcher.innerHTML =
+          orbHtml(Math.round(orbSize * 0.72)) +
+          '<span style="white-space:nowrap;position:relative;z-index:2">' + config.launcherLabel + "</span>";
+        return;
+      }
+
+      launcher.className = "sg-orb";
+      launcher.style.background = "transparent";
+      launcher.style.boxShadow = "none";
+      launcher.innerHTML = orbHtml(orbSize);
+    }
+
+    if (!orbMode) {
+      launcher.onmouseenter = function () { launcher.style.transform = "scale(1.06)"; };
+      launcher.onmouseleave = function () { launcher.style.transform = "scale(1)"; };
+    }
 
     var frame = document.createElement("iframe");
     frame.src = origin + "/c/" + encodeURIComponent(key);
@@ -146,7 +327,10 @@
     frame.style.cssText = [
       "position:fixed", "border:none", "z-index:2147483645", "display:none",
       "background:transparent", "overflow:hidden",
-      "box-shadow:0 12px 48px rgba(0,0,0,.32)", "border-radius:" + radius + "px",
+      "box-shadow:0 24px 70px rgba(0,0,0,.45)", "border-radius:" + radius + "px",
+      "opacity:0", "transform:translateY(12px) scale(.97)",
+      "transform-origin:" + (side === "right" ? "bottom right" : "bottom left"),
+      "transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.15)",
     ].join(";");
 
     // A one-line nudge that appears before anyone clicks.
@@ -185,7 +369,19 @@
 
     function setOpen(next, byVisitor) {
       open = next;
-      frame.style.display = open ? "block" : "none";
+      if (open) {
+        frame.style.display = "block";
+        // One frame of layout before the transition, or it starts from its
+        // end state and nothing appears to move.
+        requestAnimationFrame(function () {
+          frame.style.opacity = "1";
+          frame.style.transform = "none";
+        });
+      } else {
+        frame.style.opacity = "0";
+        frame.style.transform = "translateY(12px) scale(.97)";
+        setTimeout(function () { if (!open) frame.style.display = "none"; }, 220);
+      }
       paintLauncher();
       if (bubble && open) { bubble.remove(); dismissedGreeting = true; }
       if (open && byVisitor !== false) {

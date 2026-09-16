@@ -2,6 +2,7 @@ import { getUser } from "@/actions/auth";
 import { getLanguage } from "@/lib/get-language";
 import { PageHeader } from "@/components/ui/page";
 import ChannelsManager from "./channels-manager";
+import { whatsappSignupAvailable, instagramSignupAvailable } from "@/actions/channels";
 
 export async function generateMetadata() {
   const { data: user } = await getUser();
@@ -25,7 +26,12 @@ export default async function ChannelsPage() {
         title={language.app.pages.channels.meta.title}
         description={language.app.pages.channels.meta.description}
       />
-      <ChannelsManager language={language} origin={origin} />
+      <ChannelsManager
+        signup={await whatsappSignupAvailable()}
+        igSignup={await instagramSignupAvailable()}
+        language={language}
+        origin={origin}
+      />
     </div>
   );
 }
