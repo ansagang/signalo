@@ -7,7 +7,10 @@
  */
 
 import { DEFAULT_TZ } from "@/lib/timezone";
-import { availableSlots, slotCheck, bookAppointment } from "@/lib/services/bookings";
+import {
+  availableSlots, slotCheck, bookAppointment,
+  rescheduleAppointment, cancelAppointment,
+} from "@/lib/services/bookings";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -32,6 +35,22 @@ function formatSlot(iso, timezone) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+
+/** Why a time was refused, in words a customer can hear. */
+function refusalText(reason) {
+  return {
+    closed_that_day: "the business is closed that day",
+    outside_hours: "it falls outside opening hours",
+    too_soon: "it is too soon to book",
+    not_a_start_time: "this one only starts at set times",
+    all_busy: "everything is taken at that moment",
+    person_busy: "that person is busy then",
+    no_seats_left: "there are not enough seats left",
+    off_grid: "this one only starts on its scheduled times",
+    no_such_person: "nobody here does that",
+  }[reason];
 }
 
 export const toolSpecs = [
@@ -422,6 +441,108 @@ export const toolSpecs = [
   },
 
   /* ──────────────────────────── showing things ─────────────────────── */
+  {
+    name: "reschedule_appointment",
+    description:
+      "Move one of this customer's existing bookings to a different time. Use it when they want to come at another time rather than cancel. Only bookings listed under 'Already on the books' can be moved — anything else, hand over to a human.",
+    input_schema: {
+      type: "object",
+      properties: {
+        appointment_id: {
+          type: "string",
+          description: "The id shown next to the booking in 'Already on the books'.",
+        },
+        date: { type: "string", description: "New day, YYYY-MM-DD." },
+        time: { type: "string", description: "New start, HH:MM in shop-local time." },
+        party_size: { type: "integer", minimum: 1, description: "Only if the number of people changed." },
+      },
+      required: ["appointment_id", "date", "time"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date || "") || !/^\d{1,2}:\d{2}/.test(input.time || "")) {
+        return { ok: false, error: "date must be YYYY-MM-DD and time HH:MM." };
+      }
+
+      const startsAt = localToInstant(input.date, input.time, ctx.timezone);
+
+      try {
+        const { appointment, from } = await rescheduleAppointment(ctx.supabase, ctx.userId, {
+          appointmentId: input.appointment_id,
+          startsAt: startsAt.toISOString(),
+          timezone: ctx.timezone || DEFAULT_TZ,
+          party: input.party_size ? Math.max(1, Number(input.party_size)) : undefined,
+          scope: ctx.scope,
+        });
+
+        ctx.onEvent?.({ type: "rescheduled", appointment });
+        return {
+          ok: true,
+          moved_from: formatSlot(from, ctx.timezone),
+          moved_to: formatSlot(appointment.starts_at, ctx.timezone),
+          message: "Moved. Confirm the new day and time back to the customer.",
+        };
+      } catch (err) {
+        if (err?.code === "not_yours") {
+          return { ok: false, error: "That booking is not one you can change from this chat. Offer to pass the customer to a colleague." };
+        }
+        if (err?.code === "party_out_of_range") {
+          return { ok: false, error: `This takes between ${err.min} and ${err.max} people.` };
+        }
+        if (err?.code === "slot_taken") {
+          const said = refusalText(err.reason);
+          return {
+            ok: false,
+            error: said
+              ? `Could not move it — ${said}. Say so plainly, then offer the nearest times from check_availability. The original booking is untouched.`
+              : "That time is not available. The original booking is untouched.",
+          };
+        }
+        return { ok: false, error: err?.message || "Could not move that booking." };
+      }
+    },
+  },
+
+  {
+    name: "cancel_appointment",
+    description:
+      "Cancel one of this customer's existing bookings, freeing the time. Only call once the customer has clearly asked to cancel — never to check whether they want to. If they want a different time instead, use reschedule_appointment.",
+    input_schema: {
+      type: "object",
+      properties: {
+        appointment_id: {
+          type: "string",
+          description: "The id shown next to the booking in 'Already on the books'.",
+        },
+        reason: { type: "string", description: "What the customer said, if they gave a reason." },
+      },
+      required: ["appointment_id"],
+      additionalProperties: false,
+    },
+    async run(input, ctx) {
+      try {
+        const appointment = await cancelAppointment(ctx.supabase, ctx.userId, {
+          appointmentId: input.appointment_id,
+          reason: input.reason,
+          scope: ctx.scope,
+        });
+
+        ctx.onEvent?.({ type: "cancelled", appointment });
+        return {
+          ok: true,
+          cancelled: formatSlot(appointment.starts_at, ctx.timezone),
+          message:
+            "Cancelled and the time is free again. Confirm it back to the customer and offer to book another time if they want one.",
+        };
+      } catch (err) {
+        if (err?.code === "not_yours") {
+          return { ok: false, error: "That booking is not one you can cancel from this chat. Offer to pass the customer to a colleague." };
+        }
+        return { ok: false, error: err?.message || "Could not cancel that booking." };
+      }
+    },
+  },
+
   {
     name: "show_items",
     description:

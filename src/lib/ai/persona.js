@@ -182,7 +182,8 @@ function buildRecordBlock({ appointments = [], orders = [] }, timezone) {
     if (a.party_size > 1) bits.push(`${a.party_size} people`);
     if (a.resources?.name) bits.push(`with ${a.resources.name}`);
     bits.push(`status: ${a.status}`);
-    lines.push(`- ${bits.join(", ")}`);
+    // The id is what reschedule_appointment and cancel_appointment act on.
+    lines.push(`- [id ${a.id}] ${bits.join(", ")}`);
   }
 
   for (const o of orders) {
@@ -226,7 +227,8 @@ ${contextBlock}`,
 These are real records from the database, not something you should doubt. Treat them as confirmed.
 ${recordBlock}
 
-If the customer asks whether they are booked, answer from this list. Never tell them nothing is booked while a booking is listed here. To change or cancel one, hand over to a human.`);
+If the customer asks whether they are booked, answer from this list. Never tell them nothing is booked while a booking is listed here.
+To move one, call reschedule_appointment with its id. To cancel one, call cancel_appointment with its id. Never read an id out loud to the customer.`);
   }
 
   if (!open) {

@@ -171,13 +171,15 @@ function onGrid(lane, startsAt, { service, day, timezone }) {
  * else — a table for four takes one table, not four of them. `needed` says
  * which of the two the caller must compare against.
  */
-function usageIn(lane, startsAt, { service, appointments, party = 1 }) {
+function usageIn(lane, startsAt, { service, appointments, party = 1, excludeId = null }) {
   const shared = service.booking_mode === "class";
   const buffer = (service.buffer_min || 0) * MIN;
   const end = startsAt.getTime() + service.duration_min * MIN;
 
   const live = (appointments || []).filter((a) => {
     if (!["booked", "confirmed"].includes(a.status)) return false;
+    // A booking being moved must not block its own new time.
+    if (excludeId && a.id === excludeId) return false;
     // A lane with nobody attached is the whole service; a person's lane is theirs.
     return lane.id ? a.resource_id === lane.id : a.service_id === service.id;
   });

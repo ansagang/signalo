@@ -138,5 +138,25 @@ t("lead time hides slots that are too soon",
 t("13:45 Berlin is 11:45 UTC", atLocal(DAY, "13:45", TZ).toISOString(), "2026-09-17T11:45:00.000Z");
 t("same wall clock, different zone", atLocal(DAY, "13:45", "Asia/Almaty").toISOString(), "2026-09-17T08:45:00.000Z");
 
+/* ── moving a booking must not be blocked by itself ── */
+const mine = [{
+  id: "appt-1", status: "booked", resource_id: "gleb", service_id: "svc", party_size: 1,
+  starts_at: atLocal(DAY, "13:00", TZ).toISOString(),
+  ends_at: new Date(atLocal(DAY, "13:00", TZ).getTime() + 45 * 60000).toISOString(),
+}];
+t("its own slot looks taken to everyone else",
+  checkSlot({ ...base, appointments: mine, startsAt: atLocal(DAY, "13:00", TZ) }).reason, "all_busy");
+t("but free to the booking being moved",
+  checkSlot({ ...base, appointments: mine, excludeId: "appt-1", startsAt: atLocal(DAY, "13:00", TZ) }).ok, true);
+t("moving still respects somebody else's booking",
+  checkSlot({
+    ...base, excludeId: "appt-1", startsAt: atLocal(DAY, "14:30", TZ),
+    appointments: [...mine, {
+      id: "appt-2", status: "booked", resource_id: "gleb", service_id: "svc", party_size: 1,
+      starts_at: atLocal(DAY, "14:30", TZ).toISOString(),
+      ends_at: new Date(atLocal(DAY, "14:30", TZ).getTime() + 45 * 60000).toISOString(),
+    }],
+  }).reason, "all_busy");
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

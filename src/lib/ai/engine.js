@@ -300,6 +300,14 @@ export async function* runChat({
     userId,
     conversationId: conversation.id,
     timezone,
+    // Who this customer is allowed to act on behalf of. On a channel that
+    // proves identity their address counts; on the web widget only this
+    // conversation does.
+    scope: {
+      conversationId: conversation.id,
+      identifier: conversation.customer_identifier || null,
+      channel,
+    },
     onEvent: (e) => events.push(e),
   };
 
@@ -319,7 +327,7 @@ export async function* runChat({
     const [{ data: appointments }, { data: orders }] = await Promise.all([
       supabase
         .from("appointments")
-        .select("starts_at, status, party_size, services(name), resources(name)")
+        .select("id, starts_at, status, party_size, services(name), resources(name)")
         .eq("user_id", userId)
         .eq("conversation_id", conversation.id)
         .neq("status", "cancelled")

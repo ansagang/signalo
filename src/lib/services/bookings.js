@@ -79,7 +79,7 @@ async function loadDay(supabase, userId, { serviceId, date, timezone }) {
     supabase.from("service_resources").select("resource_id").eq("service_id", serviceId),
     supabase
       .from("appointments")
-      .select("starts_at, ends_at, status, party_size, resource_id, service_id")
+      .select("id, starts_at, ends_at, status, party_size, resource_id, service_id")
       .eq("user_id", userId)
       .gte("starts_at", new Date(from.getTime() - 24 * 3600_000).toISOString())
       .lt("starts_at", to.toISOString()),
@@ -120,12 +120,12 @@ export async function availableSlots(
 export async function slotCheck(
   supabase,
   userId,
-  { serviceId, startsAt, resourceId, timezone = DEFAULT_TZ, party = 1 },
+  { serviceId, startsAt, resourceId, timezone = DEFAULT_TZ, party = 1, excludeId = null },
 ) {
   const date = localDay(startsAt, timezone);
   const day = await loadDay(supabase, userId, { serviceId, date, timezone });
   if (!day) return { ok: false, reason: "service_not_found" };
-  return checkSlot({ ...day, resourceId: resourceId || null, startsAt, party });
+  return checkSlot({ ...day, resourceId: resourceId || null, startsAt, party, excludeId });
 }
 
 export async function bookAppointment(
@@ -149,11 +149,11 @@ export async function bookAppointment(
     throw err;
   }
 
-  const { data, error } = await supabase.rpc("claim_appointment", {
+  const { data, error } = await supabase.rpc("write_appointment", {
     p_user_id: userId,
     p_service_id: serviceId,
-    p_resource_id: verdict.resourceId || null,
     p_starts_at: new Date(startsAt).toISOString(),
+    p_resource_id: verdict.resourceId || null,
     p_party: party,
     p_conversation_id: conversationId || null,
     p_customer_name: customerName || null,
@@ -180,6 +180,145 @@ export async function bookAppointment(
     throw error;
   }
 
+  return data;
+}
+
+/**
+ * A customer's own upcoming bookings.
+ *
+ * Ownership is deliberately narrow. On Telegram, WhatsApp and email the
+ * transport proves who is writing, so their address is enough. On the web
+ * widget the session id proves nothing — a stranger could name someone else's
+ * phone number — so there we only ever reach bookings made in this very
+ * conversation.
+ */
+export async function customerAppointments(
+  supabase,
+  userId,
+  { conversationId, identifier, channel },
+) {
+  const verified = ["telegram", "whatsapp", "email"].includes(channel);
+
+  let query = supabase
+    .from("appointments")
+    .select("id, starts_at, ends_at, status, party_size, service_id, resource_id, customer_name, customer_contact, services(name), resources(name)")
+    .eq("user_id", userId)
+    .in("status", ["booked", "confirmed"])
+    .gte("starts_at", new Date(Date.now() - 3600_000).toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(20);
+
+  query = verified && identifier
+    ? query.or(`conversation_id.eq.${conversationId},customer_contact.eq.${identifier}`)
+    : query.eq("conversation_id", conversationId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+/** One of this customer's bookings, by id — or null if it is not theirs. */
+async function ownedAppointment(supabase, userId, appointmentId, scope) {
+  const mine = await customerAppointments(supabase, userId, scope);
+  return mine.find((a) => a.id === appointmentId) || null;
+}
+
+/**
+ * Move a booking to another time.
+ *
+ * Checked in code against the new time, then moved atomically — excluding
+ * itself, so a booking is never blocked by the slot it is leaving.
+ */
+export async function rescheduleAppointment(
+  supabase,
+  userId,
+  { appointmentId, startsAt, resourceId, timezone = DEFAULT_TZ, party, scope },
+) {
+  const appt = await ownedAppointment(supabase, userId, appointmentId, scope);
+  if (!appt) {
+    const err = new Error("That booking is not one we can change here.");
+    err.code = "not_yours";
+    throw err;
+  }
+
+  const wanted = party || appt.party_size || 1;
+  const verdict = await slotCheck(supabase, userId, {
+    serviceId: appt.service_id,
+    startsAt,
+    resourceId: resourceId || null,
+    timezone,
+    party: wanted,
+    excludeId: appointmentId,
+  });
+
+  if (!verdict.ok) {
+    const err = new Error(
+      verdict.reason === "party_out_of_range"
+        ? `This takes between ${verdict.min} and ${verdict.max} people.`
+        : "That time is not bookable.",
+    );
+    err.code = verdict.reason === "party_out_of_range" ? "party_out_of_range" : "slot_taken";
+    err.reason = verdict.reason;
+    if (verdict.min !== undefined) { err.min = verdict.min; err.max = verdict.max; }
+    throw err;
+  }
+
+  // Same guard as a new booking; the id is what makes it a move.
+  const { data, error } = await supabase.rpc("write_appointment", {
+    p_user_id: userId,
+    p_service_id: appt.service_id,
+    p_starts_at: new Date(startsAt).toISOString(),
+    p_resource_id: verdict.resourceId || null,
+    p_party: wanted,
+    p_appointment_id: appointmentId,
+  });
+
+  if (error) {
+    const message = error.message || "";
+    if (message.includes("slot_taken")) {
+      const err = new Error("That time was taken while we were moving it.");
+      err.code = "slot_taken";
+      err.reason = message.split("slot_taken:")[1]?.split(/[^a-z_]/)[0] || "all_busy";
+      throw err;
+    }
+    throw error;
+  }
+
+  return { appointment: data, from: appt.starts_at };
+}
+
+/**
+ * Cancel a booking.
+ *
+ * Marked cancelled rather than deleted: the time is freed either way, because
+ * availability only counts booked and confirmed, and the seller keeps a record
+ * of what happened. Removing the row for good is a dashboard action.
+ */
+export async function cancelAppointment(
+  supabase,
+  userId,
+  { appointmentId, reason, scope },
+) {
+  const appt = await ownedAppointment(supabase, userId, appointmentId, scope);
+  if (!appt) {
+    const err = new Error("That booking is not one we can change here.");
+    err.code = "not_yours";
+    throw err;
+  }
+
+  const note = reason?.trim()
+    ? `Cancelled by the customer: ${reason.trim()}`
+    : "Cancelled by the customer.";
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .update({ status: "cancelled", note })
+    .eq("id", appointmentId)
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
   return data;
 }
 
