@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_TZ } from "@/lib/timezone";
+import { availableSlots, slotCheck, bookAppointment } from "@/lib/services/bookings";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -194,17 +195,19 @@ export const toolSpecs = [
         const startsAt = localToInstant(input.date, hhmm, ctx.timezone).toISOString();
         const party = Math.max(1, Number(input.party_size) || 1);
 
-        const { data: check, error: checkError } = await ctx.supabase.rpc("check_slot", {
-          p_user_id: ctx.userId,
-          p_service_id: input.service_id,
-          p_starts_at: startsAt,
-          p_resource_id: resourceId,
-          p_timezone: ctx.timezone || DEFAULT_TZ,
-          p_party: party,
-        });
-        if (checkError) return { ok: false, error: checkError.message };
+        let row;
+        try {
+          row = await slotCheck(ctx.supabase, ctx.userId, {
+            serviceId: input.service_id,
+            startsAt,
+            resourceId,
+            timezone: ctx.timezone || DEFAULT_TZ,
+            party,
+          });
+        } catch (err) {
+          return { ok: false, error: err?.message || "Could not check that time." };
+        }
 
-        const row = Array.isArray(check) ? check[0] : check;
         if (row?.ok) {
           return {
             ok: true,
@@ -247,18 +250,18 @@ export const toolSpecs = [
       // Only "any" treats its grid as a suggestion.
       const anyTime = svc?.slot_mode === "any";
 
-      const { data, error } = await ctx.supabase.rpc("available_slots", {
-        p_user_id: ctx.userId,
-        p_service_id: input.service_id,
-        p_day: input.date,
-        p_resource_id: resourceId,
-        p_timezone: ctx.timezone || DEFAULT_TZ,
-        p_party: Math.max(1, Number(input.party_size) || 1),
-      });
-
-      if (error) return { ok: false, error: error.message };
-
-      const rows = data || [];
+      let rows;
+      try {
+        rows = await availableSlots(ctx.supabase, ctx.userId, {
+          serviceId: input.service_id,
+          date: input.date,
+          resourceId,
+          timezone: ctx.timezone || DEFAULT_TZ,
+          party: Math.max(1, Number(input.party_size) || 1),
+        });
+      } catch (err) {
+        return { ok: false, error: err?.message || "Could not read availability." };
+      }
       if (!rows.length) {
         return {
           ok: true,
@@ -354,26 +357,25 @@ export const toolSpecs = [
 
       const startsAt = localToInstant(input.date, input.time, ctx.timezone);
 
-      const { data, error } = await ctx.supabase.rpc("book_appointment", {
-        p_user_id: ctx.userId,
-        p_service_id: input.service_id,
-        p_starts_at: startsAt.toISOString(),
-        p_resource_id: resourceId,
-        p_conversation_id: ctx.conversationId,
-        p_customer_name: input.customer_name || null,
-        p_customer_contact: input.customer_contact || null,
-        p_note: input.note || null,
-        p_timezone: ctx.timezone || DEFAULT_TZ,
-        p_party: Math.max(1, Number(input.party_size) || 1),
-      });
-
-      if (error) {
-        if ((error.message || "").includes("party_out_of_range")) {
-          const [, min, max] = (error.message || "").split(":");
-          return { ok: false, error: `This takes between ${min} and ${max} people. Ask the customer for a party size in range.` };
+      let appt;
+      try {
+        appt = await bookAppointment(ctx.supabase, ctx.userId, {
+          serviceId: input.service_id,
+          startsAt: startsAt.toISOString(),
+          resourceId,
+          conversationId: ctx.conversationId,
+          customerName: input.customer_name || null,
+          customerContact: input.customer_contact || null,
+          note: input.note || null,
+          timezone: ctx.timezone || DEFAULT_TZ,
+          party: Math.max(1, Number(input.party_size) || 1),
+        });
+      } catch (err) {
+        if (err?.code === "party_out_of_range") {
+          return { ok: false, error: `This takes between ${err.min} and ${err.max} people. Ask the customer for a party size in range.` };
         }
-        if ((error.message || "").includes("slot_taken")) {
-          const why = (error.message || "").split("slot_taken:")[1]?.split(/[^a-z_]/)[0];
+        if (err?.code === "slot_taken") {
+          // The reason is known, so say which one rather than a catch-all.
           const said = {
             closed_that_day: "the business is closed that day",
             outside_hours: "it falls outside opening hours",
@@ -383,7 +385,8 @@ export const toolSpecs = [
             person_busy: "that person is busy then",
             no_seats_left: "there are not enough seats left",
             off_grid: "this one only starts on its scheduled times",
-          }[why];
+            no_such_person: "nobody here does that",
+          }[err.reason];
           return {
             ok: false,
             error: said
@@ -391,13 +394,12 @@ export const toolSpecs = [
               : "That time is not bookable. Call check_availability again and offer only what it returns.",
           };
         }
-        if ((error.message || "").includes("service_not_found")) {
+        if ((err?.message || "").includes("service_not_found")) {
           return { ok: false, error: "That service does not exist. Use a service_id from the catalogue." };
         }
-        return { ok: false, error: error.message };
+        return { ok: false, error: err?.message || "Could not book that time." };
       }
 
-      const appt = Array.isArray(data) ? data[0] : data;
 
       await ctx.supabase
         .from("conversations")
