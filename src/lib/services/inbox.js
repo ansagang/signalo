@@ -84,7 +84,7 @@ export async function touchConversation(supabase, conversationId, patch = {}) {
 
 export async function updateConversation(supabase, userId, id, updates) {
   const allowed = {};
-  for (const key of ["status", "handoff", "classification", "customer_name"]) {
+  for (const key of ["status", "handoff", "handoff_at", "classification", "customer_name"]) {
     if (updates[key] !== undefined) allowed[key] = updates[key];
   }
   if (allowed.status === "resolved") allowed.resolved_at = new Date().toISOString();

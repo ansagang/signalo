@@ -360,7 +360,8 @@
         },
         "actions": {
           "resolve": "Resolve",
-          "reopen": "Reopen"
+          "reopen": "Reopen",
+          "backToAssistant": "Back to assistant"
         },
         "labels": {
           "agent": "You ·",
@@ -1017,7 +1018,8 @@
       "bookingRemoveError": "Could not remove the booking",
       "timezoneSaved": "Clock updated",
       "timezoneSaveError": "Could not save the timezone",
-      "shiftsClamped": "Saved — shifts were trimmed to your opening hours"
+      "shiftsClamped": "Saved — shifts were trimmed to your opening hours",
+      "handoffReleased": "The assistant will answer this chat again"
     },
     "global": {
       "currencies": {

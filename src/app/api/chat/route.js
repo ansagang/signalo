@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { createClient } from "@/lib/supabase/server";
 import { ensureConversation, runChat } from "@/lib/ai/engine";
+import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
 import { tzForUser } from "@/lib/timezone";
 
 export const runtime = "nodejs";
@@ -117,6 +118,24 @@ export async function POST(request) {
     });
   } catch (err) {
     return bad(err?.message || "Could not start the conversation.", 500);
+  }
+
+  // The widget used to ignore handoff entirely, so the assistant answered on
+  // top of whichever colleague was mid-reply.
+  const handoff = await handoffState(supabase, conversation);
+  if (handoff.release) await releaseHandoff(supabase, conversation.id);
+
+  if (!handoff.reply) {
+    await supabase.from("messages").insert({
+      conversation_id: conversation.id,
+      role: "customer",
+      content: message,
+      channel: channelType,
+    });
+    return Response.json(
+      { success: true, handoff: true, session_id: sessionId, conversation_id: conversation.id },
+      { headers: CORS },
+    );
   }
 
   const encoder = new TextEncoder();

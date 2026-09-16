@@ -25,6 +25,7 @@ import {
   MessageSquareIcon,
   PackageIcon,
   RotateCcwIcon,
+  BotIcon,
 } from "lucide-react";
 
 const CHANNEL_STYLES = {
@@ -215,7 +216,7 @@ function Transcript({ conversation, language, p, res }) {
 
   function setStatus(status) {
     updateConversation.mutate(
-      { id: conversation.id, updates: { status, ...(status === "open" ? { handoff: false } : {}) } },
+      { id: conversation.id, updates: { status, ...(status === "open" ? { handoff: false, handoff_at: null } : {}) } },
       {
         onSuccess: (r) =>
           r?.success === false ? showError(r.message) : showSuccess(res.conversationUpdated),
@@ -249,6 +250,27 @@ function Transcript({ conversation, language, p, res }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {conversation.handoff && (
+            // Otherwise the assistant waits out the quiet period before it
+            // picks the conversation back up.
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                updateConversation.mutate(
+                  { id: conversation.id, updates: { handoff: false, handoff_at: null, status: "open" } },
+                  {
+                    onSuccess: (r) =>
+                      r?.success === false ? showError(r.message) : showSuccess(res.handoffReleased),
+                    onError: () => showError(res.conversationUpdateError),
+                  },
+                )
+              }
+            >
+              <BotIcon className="size-3.5" />
+              {p.actions.backToAssistant}
+            </Button>
+          )}
           {resolved ? (
             <Button variant="ghost" size="sm" onClick={() => setStatus("open")}>
               <RotateCcwIcon className="size-3.5" />

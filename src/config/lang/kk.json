@@ -360,7 +360,8 @@
         },
         "actions": {
           "resolve": "Шешілді",
-          "reopen": "Қайта ашу"
+          "reopen": "Қайта ашу",
+          "backToAssistant": "Ассистентке қайтару"
         },
         "labels": {
           "agent": "Сіз ·",
@@ -1017,7 +1018,8 @@
       "bookingRemoveError": "Жазбаны жою мүмкін болмады",
       "timezoneSaved": "Уақыт белдеуі жаңартылды",
       "timezoneSaveError": "Уақыт белдеуін сақтау мүмкін болмады",
-      "shiftsClamped": "Сақталды — ауысымдар жұмыс сағатына келтірілді"
+      "shiftsClamped": "Сақталды — ауысымдар жұмыс сағатына келтірілді",
+      "handoffReleased": "Ассистент бұл чатта қайта жауап береді"
     },
     "global": {
       "currencies": {

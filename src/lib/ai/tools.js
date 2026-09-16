@@ -655,7 +655,7 @@ export const toolSpecs = [
     async run(input, ctx) {
       const { error } = await ctx.supabase
         .from("conversations")
-        .update({ handoff: true, status: "escalated", last_intent: "handoff" })
+        .update({ handoff: true, handoff_at: new Date().toISOString(), status: "escalated", last_intent: "handoff" })
         .eq("id", ctx.conversationId);
 
       if (error) return { ok: false, error: error.message };

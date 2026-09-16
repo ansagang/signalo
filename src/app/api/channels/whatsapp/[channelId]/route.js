@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { tzForUser } from "@/lib/timezone";
+import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
 import {
   sendWhatsAppText, sendWhatsAppImage, markReadAndTyping, verifySignature,
 } from "@/lib/channels/whatsapp";
@@ -142,8 +143,10 @@ export async function POST(request, { params }) {
       locale: null,
     });
 
-    // A human has taken this conversation over — stay quiet.
-    if (conversation.handoff) {
+    // Stay out of the way while a person is working, but come back once they
+    // have finished — otherwise one escalation mutes this customer for life.
+    const handoff = await handoffState(supabase, conversation);
+    if (!handoff.reply) {
       await supabase.from("messages").insert({
         conversation_id: conversation.id,
         role: "customer",
@@ -153,6 +156,7 @@ export async function POST(request, { params }) {
       });
       return ok();
     }
+    if (handoff.release) await releaseHandoff(supabase, conversation.id);
 
     const { text: reply, events } = await runChatToString({
       supabase,

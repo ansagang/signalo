@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { sendEmail, parseInbound, replySubject, fetchInboundBody } from "@/lib/channels/email";
 import { tzForUser } from "@/lib/timezone";
+import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,9 +102,12 @@ export async function POST(request, { params }) {
       locale: null,
     });
 
-    // A human has taken this over, or we have no way to send yet. Either way
-    // the message still belongs in the inbox for someone to pick up.
-    if (conversation.handoff || !apiKey) {
+    const handoff = await handoffState(supabase, conversation);
+    if (handoff.release) await releaseHandoff(supabase, conversation.id);
+
+    // A person is still working this, or we have no way to send yet. Either
+    // way the message still belongs in the inbox for someone to pick up.
+    if (!handoff.reply || !apiKey) {
       await supabase.from("messages").insert({
         conversation_id: conversation.id,
         role: "customer",
