@@ -76,9 +76,9 @@ export const useDeleteService = crud("services", deleteService);
 export function useResources() {
   return useQuery({ queryKey: ["resources"], queryFn: getResources, staleTime: 5 * 60_000 });
 }
-export const useCreateResource = crud("resource", createResource);
-export const useUpdateResource = crudWithId("resource", updateResource);
-export const useDeleteResource = crud("resource", deleteResource);
+export const useCreateResource = crud("resources", createResource);
+export const useUpdateResource = crudWithId("resources", updateResource);
+export const useDeleteResource = crud("resources", deleteResource);
 
 /* service ↔ resource */
 export function useServiceResourceMap() {
@@ -88,7 +88,11 @@ export function useSetServiceResources() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ serviceId, resourceIds }) => setServiceResources(serviceId, resourceIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-resource"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["service-resource"] });
+      qc.invalidateQueries({ queryKey: ["services"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
   });
 }
 
@@ -96,7 +100,11 @@ export function useSetResourceServices() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ resourceId, serviceIds }) => setResourceServices(resourceId, serviceIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["service-resource"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["service-resource"] });
+      qc.invalidateQueries({ queryKey: ["services"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
   });
 }
 

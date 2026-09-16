@@ -755,7 +755,8 @@
           "canDo": "Services this person can do",
           "canDoHelp": "The assistant offers this person only for the services you tick.",
           "noServicesYet": "Add services in Catalogue first.",
-          "shiftsTitle": "Working hours"
+          "shiftsTitle": "Working hours",
+          "shiftsBounded": "A shift can only fall inside your opening hours, and a day you are closed is a day off for everyone."
         },
         "explain": {
           "title": "What decides when the assistant can book",
@@ -1016,7 +1017,8 @@
       "bookingRemoved": "Booking removed",
       "bookingRemoveError": "Could not remove the booking",
       "timezoneSaved": "Clock updated",
-      "timezoneSaveError": "Could not save the timezone"
+      "timezoneSaveError": "Could not save the timezone",
+      "shiftsClamped": "Saved — shifts were trimmed to your opening hours"
     },
     "global": {
       "currencies": {

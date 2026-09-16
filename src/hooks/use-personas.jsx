@@ -33,6 +33,7 @@ export function useCreatePersona() {
         mutationFn: createPersona,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["personas"] });
+            queryClient.invalidateQueries({ queryKey: ["persona"] });
         }
     });
 }
@@ -61,6 +62,7 @@ export function useUpdatePersona() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["personas"] });
+            queryClient.invalidateQueries({ queryKey: ["persona"] });
         },
     });
 }
@@ -91,6 +93,7 @@ export function useDeletePersona() {
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ["personas"] });
+            queryClient.invalidateQueries({ queryKey: ["persona"] });
         },
     });
 }

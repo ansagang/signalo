@@ -43,7 +43,45 @@ function summarise(rows, names, labels) {
   return sameTimes ? `${days}, ${open[0].from}–${open[0].to}` : days;
 }
 
-function WeekEditor({ rows, onChange, dayNames, labels, compact }) {
+/**
+ * Pull a week of shifts inside the shop's opening hours.
+ *
+ * A master set to 08:00 when the shop opens at 10:00 produced no bookable
+ * time at all — availability intersects the two — so the admin saw a shift
+ * that did nothing. Better to say so and fix it on the way in.
+ */
+function clampToShop(rows, shopHours) {
+  const byDay = new Map((shopHours || []).map((h) => [h.weekday, h]));
+  let changed = false;
+
+  const out = rows.map((row) => {
+    const day = byDay.get(row.weekday);
+    if (!day) return row;                       // no hours set: nothing to clamp to
+
+    if (day.closed) {
+      if (!row.off) changed = true;
+      return { ...row, off: true };
+    }
+    if (row.off) return row;
+
+    const open = String(day.opens).slice(0, 5);
+    const shut = String(day.closes).slice(0, 5);
+    const from = row.from < open ? open : row.from;
+    const to = row.to > shut ? shut : row.to;
+
+    // Entirely outside the shop's day — there is no shift left to keep.
+    if (from >= to) {
+      changed = true;
+      return { ...row, off: true, from: open, to: shut };
+    }
+    if (from !== row.from || to !== row.to) changed = true;
+    return { ...row, from, to };
+  });
+
+  return { rows: out, changed };
+}
+
+function WeekEditor({ rows, onChange, dayNames, labels, compact, bounds }) {
   const set = (weekday, key, value) =>
     onChange(rows.map((r) => (r.weekday === weekday ? { ...r, [key]: value } : r)));
 
@@ -75,9 +113,23 @@ function WeekEditor({ rows, onChange, dayNames, labels, compact }) {
             <span className="text-[12px] text-muted">{labels.closedAllDay}</span>
           ) : (
             <div className="flex items-center gap-2">
-              <Input type="time" value={row.from} onChange={(e) => set(row.weekday, "from", e.target.value)} className="w-[116px]" />
+              <Input
+                type="time"
+                value={row.from}
+                min={bounds?.get(row.weekday)?.from}
+                max={bounds?.get(row.weekday)?.to}
+                onChange={(e) => set(row.weekday, "from", e.target.value)}
+                className="w-[116px]"
+              />
               <span className="text-muted text-[12px]">—</span>
-              <Input type="time" value={row.to} onChange={(e) => set(row.weekday, "to", e.target.value)} className="w-[116px]" />
+              <Input
+                type="time"
+                value={row.to}
+                min={bounds?.get(row.weekday)?.from}
+                max={bounds?.get(row.weekday)?.to}
+                onChange={(e) => set(row.weekday, "to", e.target.value)}
+                className="w-[116px]"
+              />
               {!compact && (
                 <button
                   type="button"
@@ -311,20 +363,33 @@ function ResourceRow({ member, services, allServices, assignedIds, p, res, dayNa
   const update = useUpdateResource();
   const remove = useDeleteResource();
   const { data: hours, isLoading } = useResourceHours(open ? member.id : null);
+  const { data: shopHours } = useBusinessHours();
   const saveHours = useSaveResourceHours();
   const setResourceServices = useSetResourceServices();
   const [rows, setRows] = useState([]);
 
   useEffect(() => {
-    if (hours) {
-      setRows(hours.map((h) => ({
-        weekday: h.weekday,
-        from: h.starts_at?.slice(0, 5),
-        to: h.ends_at?.slice(0, 5),
-        off: h.off,
-      })));
+    if (!hours) return;
+    const raw = hours.map((h) => ({
+      weekday: h.weekday,
+      from: h.starts_at?.slice(0, 5),
+      to: h.ends_at?.slice(0, 5),
+      off: h.off,
+    }));
+    // Show them already inside the shop's hours — a shift displayed as
+    // 08:00–22:00 that only ever works 10:00–20:00 is a lie.
+    setRows(clampToShop(raw, shopHours).rows);
+  }, [hours, shopHours]);
+
+  // The shop's own day, so the pickers cannot offer an impossible time.
+  const bounds = useMemo(() => {
+    const m = new Map();
+    for (const h of shopHours || []) {
+      if (h.closed) continue;
+      m.set(h.weekday, { from: String(h.opens).slice(0, 5), to: String(h.closes).slice(0, 5) });
     }
-  }, [hours]);
+    return m;
+  }, [shopHours]);
 
   return (
     <Panel>
@@ -420,28 +485,34 @@ function ResourceRow({ member, services, allServices, assignedIds, p, res, dayNa
           <div className="px-4 pt-3 pb-1">
             <p className="text-[13px] font-medium text-fg mb-1">{p.team.shiftsTitle}</p>
             <Hint>{p.team.shiftsHelp}</Hint>
+            <Hint className="mt-1">{p.team.shiftsBounded}</Hint>
           </div>
           {isLoading ? (
             <Loading className="py-8" />
           ) : (
             <>
-              <WeekEditor rows={rows} onChange={setRows} dayNames={dayNames} labels={p.hours} compact />
+              <WeekEditor rows={rows} onChange={setRows} dayNames={dayNames} labels={p.hours} bounds={bounds} compact />
               <div className="px-4 py-3 border-t border-secondary-transparent flex items-center gap-3">
                 <Button
                   size="sm"
                   disabled={saveHours.isPending}
-                  onClick={() =>
+                  onClick={() => {
+                    const { rows: safe, changed } = clampToShop(rows, shopHours);
+                    if (changed) setRows(safe);
                     saveHours.mutate(
                       {
                         resourceId: member.id,
-                        rows: rows.map((r) => ({ weekday: r.weekday, starts_at: r.from, ends_at: r.to, off: r.off })),
+                        rows: safe.map((r) => ({ weekday: r.weekday, starts_at: r.from, ends_at: r.to, off: r.off })),
                       },
                       {
-                        onSuccess: (x) => (x?.success === false ? showError(x.message) : showSuccess(res.hoursSaved)),
+                        onSuccess: (x) =>
+                          x?.success === false
+                            ? showError(x.message)
+                            : showSuccess(changed ? res.shiftsClamped : res.hoursSaved),
                         onError: () => showError(res.hoursSaveError),
                       },
-                    )
-                  }
+                    );
+                  }}
                 >
                   {saveHours.isPending ? <LoaderIcon className="size-3.5 animate-spin" /> : p.team.saveShifts}
                 </Button>
