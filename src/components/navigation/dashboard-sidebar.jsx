@@ -12,7 +12,7 @@ import {
     useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { BookText, BotIcon, CalendarDays, Inbox, LayoutGrid, LucideMessageSquare, PackageIcon, Store, User } from "lucide-react"
+import { BookText, BotIcon, CalendarDays, Inbox, LayoutGrid, LucideMessageSquare, PackageIcon, Store, User , WalletIcon } from "lucide-react"
 import Link from "next/link"
 import DashboardNavigation from "./dashboard-nav"
 import { NavUser } from "../ui/nav-user"
@@ -78,6 +78,12 @@ export function DashboardSidebar({ user, language }) {
                     title: language.app.pages.business.meta.title,
                     link: "/dashboard/business",
                     icon: <Store size={18} />
+                },
+                {
+                    id: language.app.pages.billing.meta.title,
+                    title: language.app.pages.billing.meta.title,
+                    link: "/dashboard/billing",
+                    icon: <WalletIcon size={18} />
                 },
                 {
                     id: language.app.pages.account.meta.title,

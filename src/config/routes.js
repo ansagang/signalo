@@ -10,6 +10,7 @@ export const routes = [
             '/dashboard/personas',
             '/dashboard/channels',
             '/dashboard/business',
+            '/dashboard/billing',
             '/dashboard/account'
         ]
     },

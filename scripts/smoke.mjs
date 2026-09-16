@@ -32,7 +32,7 @@ const PAGES = [
   '/',                       // the public landing page
   '/dashboard', '/dashboard/conversations', '/dashboard/catalogue',
   '/dashboard/bookings', '/dashboard/knowledge-base', '/dashboard/personas',
-  '/dashboard/channels', '/dashboard/business', '/dashboard/account',
+  '/dashboard/channels', '/dashboard/business', '/dashboard/billing', '/dashboard/account',
 ];
 
 // Noise that is not a defect in this app.

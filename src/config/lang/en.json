@@ -770,6 +770,47 @@
           "save": "Save clock"
         }
       },
+      "billing": {
+        "meta": {
+          "title": "Usage & billing",
+          "description": "What your assistant costs, and what you have left."
+        },
+        "stats": {
+          "balance": "Credits left",
+          "balanceSub": "about {money}",
+          "spent": "Spent in {days} days",
+          "spentSub": "{n} assistant replies",
+          "tokens": "Tokens used",
+          "tokensSub": "{in} in · {out} out",
+          "runway": "Days left",
+          "runwaySub": "at your recent pace",
+          "runwayNone": "no usage yet"
+        },
+        "chart": "Credits per day, last {days} days",
+        "byChannel": "Where it was spent",
+        "byModel": "Which model spent it",
+        "noUsage": "Nothing used yet",
+        "low": {
+          "title": "Your balance is running low",
+          "body": "When it reaches zero the assistant stops replying and conversations go to you instead. Top up to keep it answering."
+        },
+        "history": {
+          "title": "Credit history",
+          "subtitle": "Every top-up and every charge.",
+          "empty": "Top-ups and charges will appear here."
+        },
+        "reasons": {
+          "usage": "Usage",
+          "topup": "Top-up",
+          "grant": "Grant",
+          "adjustment": "Adjustment",
+          "refund": "Refund"
+        },
+        "empty": {
+          "title": "Nothing to show yet",
+          "subtitle": "Usage appears here as soon as your assistant answers its first message."
+        }
+      },
       "landing": {
         "meta": {
           "title": "Signalo — the assistant that answers, sells and books",

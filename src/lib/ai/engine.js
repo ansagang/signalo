@@ -5,6 +5,7 @@ import { resolveModel } from "./models";
 import { retrieveContext, formatContext } from "./retrieval";
 import { buildPersonaPrompt, buildContextPrompt } from "./persona";
 import { anthropicTools, openaiTools, runTool } from "./tools";
+import { recordUsage } from "@/lib/services/billing";
 
 const MAX_TOOL_TURNS = 5;
 const HISTORY_LIMIT = 24;
@@ -105,7 +106,7 @@ async function saveMessage(supabase, { conversationId, role, content, channel, m
 
 /* ──────────────────────────── provider loops ──────────────────────────── */
 
-async function* streamAnthropic({ model, system, messages, persona, ctx }) {
+async function* streamAnthropic({ model, system, messages, persona, ctx, meter }) {
   const client = anthropic();
   const tools = anthropicTools();
   const convo = [...messages];
@@ -148,6 +149,14 @@ async function* streamAnthropic({ model, system, messages, persona, ctx }) {
 
     const message = await stream.finalMessage();
 
+    // Every turn of the tool loop is its own billable call.
+    if (message.usage) {
+      meter.add(
+        message.usage.input_tokens + (message.usage.cache_read_input_tokens || 0),
+        message.usage.output_tokens,
+      );
+    }
+
     if (message.stop_reason === "refusal") {
       yield {
         type: "delta",
@@ -183,7 +192,7 @@ async function* streamAnthropic({ model, system, messages, persona, ctx }) {
   return fullText;
 }
 
-async function* streamOpenAI({ model, system, messages, persona, ctx }) {
+async function* streamOpenAI({ model, system, messages, persona, ctx, meter }) {
   const client = openai();
   const tools = openaiTools();
   const systemText = Array.isArray(system)
@@ -207,6 +216,8 @@ async function* streamOpenAI({ model, system, messages, persona, ctx }) {
       messages: convo,
       tools,
       stream: true,
+      // Without this the usage block never arrives and the call bills as zero.
+      stream_options: { include_usage: true },
     });
 
     let text = "";
@@ -215,6 +226,9 @@ async function* streamOpenAI({ model, system, messages, persona, ctx }) {
     let firstTextOfTurn = true;
 
     for await (const chunk of stream) {
+      if (chunk.usage) {
+        meter.add(chunk.usage.prompt_tokens || 0, chunk.usage.completion_tokens || 0);
+      }
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.finish_reason) finish = choice.finish_reason;
@@ -372,7 +386,13 @@ export async function* runChat({
     { type: "text", text: buildContextPrompt(persona, contextBlock, { timezone, record }) },
   ];
 
-  const args = { model, system, messages: history, persona, ctx };
+  // Tokens add up across every turn of the tool loop, then bill once.
+  const meter = {
+    input: 0, output: 0,
+    add(input, output) { this.input += input || 0; this.output += output || 0; },
+  };
+
+  const args = { model, system, messages: history, persona, ctx, meter };
   const iterator =
     model.provider === "openai" ? streamOpenAI(args) : streamAnthropic(args);
 
@@ -409,7 +429,30 @@ export async function* runChat({
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversation.id);
 
-  yield { type: "done", text, conversation_id: conversation.id };
+  // Charge last, and never let billing break a conversation that already
+  // happened — an unrecorded credit is cheaper than a lost customer.
+  let charged = null;
+  if (meter.input || meter.output) {
+    try {
+      charged = await recordUsage(supabase, userId, {
+        model: model.id,
+        inputTokens: meter.input,
+        outputTokens: meter.output,
+        kind: "chat",
+        conversationId: conversation.id,
+        channel,
+      });
+    } catch (err) {
+      console.error("recordUsage", err?.message || err);
+    }
+  }
+
+  yield {
+    type: "done",
+    text,
+    conversation_id: conversation.id,
+    usage: { input: meter.input, output: meter.output, credits: charged?.credits ?? 0 },
+  };
 }
 
 /**
