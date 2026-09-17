@@ -6,6 +6,7 @@
      and greys under #6b were unreadable as body text. */
   --color-primary:               #0a0a0c;
   --color-secondary:             #9a9aa3;
+  --color-secondary2: #202021;
   --color-secondary-transparent: rgba(255, 255, 255, 0.12);
   --color-secondary-transparent2: rgba(255, 255, 255, 0.055);
   /* The logo is three rounded squares in a silver gradient, so the accent is

@@ -11,6 +11,7 @@ import {
   availableSlots, slotCheck, bookAppointment,
   rescheduleAppointment, cancelAppointment,
 } from "@/lib/services/bookings";
+import { mustTryBeforeEscalating } from "@/lib/ai/handoff";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -653,6 +654,19 @@ export const toolSpecs = [
       additionalProperties: false,
     },
     async run(input, ctx) {
+      // A colleague who just handed this back gets one reply before the
+      // assistant is allowed to hand it straight to them again. Without this
+      // the transcript's own ending ("a colleague will help") was enough to
+      // make the model escalate on the customer's very next message, undoing
+      // the decision before anyone saw it take effect.
+      if (ctx.conversation && (await mustTryBeforeEscalating(ctx.supabase, ctx.conversation))) {
+        return {
+          ok: false,
+          error:
+            "A colleague has just handed this conversation back to you on purpose. Answer the customer yourself this time — use the catalogue and the tools. Only if you still cannot help after replying may you ask for a person again.",
+        };
+      }
+
       const { error } = await ctx.supabase
         .from("conversations")
         .update({ handoff: true, handoff_at: new Date().toISOString(), status: "escalated", last_intent: "handoff" })

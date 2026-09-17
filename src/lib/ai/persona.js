@@ -39,8 +39,19 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-function withinWorkingHours(persona, now = new Date()) {
-  const { working_hours_start: start, working_hours_end: end } = persona;
+/**
+ * Whether the assistant is inside its working hours.
+ *
+ * The clock is the business's, not the server's. This used to read
+ * `now.getHours()`, which is the timezone the process happens to run in — so
+ * a salon in Almaty was judged open or closed by a machine in another
+ * hemisphere.
+ *
+ * Exported because the customer sees this too: the chat header says whether
+ * anyone is around, and it has to agree with what the assistant is told.
+ */
+export function withinWorkingHours(persona, now = new Date(), timezone = DEFAULT_TZ) {
+  const { working_hours_start: start, working_hours_end: end } = persona || {};
   if (!start || !end) return true;
 
   const toMinutes = (t) => {
@@ -48,7 +59,15 @@ function withinWorkingHours(persona, now = new Date()) {
     return h * 60 + (m || 0);
   };
 
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const clock = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone, hour12: false, hour: "2-digit", minute: "2-digit",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value]),
+  );
+
+  const nowMin = (Number(clock.hour) % 24) * 60 + Number(clock.minute);
   const s = toMinutes(start);
   const e = toMinutes(end);
 
@@ -199,9 +218,9 @@ function buildRecordBlock({ appointments = [], orders = [] }, timezone) {
 export function buildContextPrompt(
   persona,
   contextBlock,
-  { now = new Date(), timezone = DEFAULT_TZ, record = null } = {},
+  { now = new Date(), timezone = DEFAULT_TZ, record = null, handedBack = false } = {},
 ) {
-  const open = withinWorkingHours(persona, now);
+  const open = withinWorkingHours(persona, now, timezone);
 
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
@@ -215,6 +234,15 @@ export function buildContextPrompt(
   }).format(now);
 
   const parts = [
+    ...(handedBack
+      ? [
+          `## A colleague just handed this back to you
+Someone on the team read this conversation and decided you should take it from
+here. Do not ask for a person again on this message — answer the customer
+yourself, using the catalogue and your tools. If you genuinely still cannot
+help after you have replied, you may escalate on a later message.`,
+        ]
+      : []),
     `## Today
 It is ${weekday}, ${today} (${timezone}). Resolve every relative date the customer uses against this.`,
     `## Catalogue — the only things you may speak about

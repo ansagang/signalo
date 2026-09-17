@@ -3,6 +3,7 @@ import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { sendEmail, parseInbound, replySubject, fetchInboundBody } from "@/lib/channels/email";
 import { tzForUser } from "@/lib/timezone";
 import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
+import { channelStrings } from "@/lib/widget-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -151,7 +152,7 @@ export async function POST(request, { params }) {
     if (body.trim()) await reply(body);
   } catch (err) {
     await reply(
-      "Извините, что-то пошло не так. Коллега свяжется с вами.\n\nSorry, something went wrong — a colleague will follow up.",
+      (await channelStrings(supabase, channel.user_id, null)).wentWrong,
     );
     console.error("email webhook", err);
   }

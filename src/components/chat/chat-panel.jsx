@@ -3,12 +3,38 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import BotIcon from "@/components/ui/bot-icon";
+import Orb from "@/components/chat/orb";
+import { fill } from "@/lib/widget-language";
 import { SendIcon, LoaderIcon, CheckCircle2Icon, UserRoundIcon } from "lucide-react";
 
+/**
+ * English is the floor, not the source of truth.
+ *
+ * The seller's own language pack supplies these; this object only covers the
+ * playground, which has no visitor whose language to follow.
+ */
 const TOOL_LABELS = {
   create_order: "Recording the order",
   capture_contact: "Saving contact details",
   request_human: "Bringing in a colleague",
+  check_availability: "Checking free times",
+  book_appointment: "Making the booking",
+  reschedule_appointment: "Moving the booking",
+  cancel_appointment: "Cancelling the booking",
+  show_items: "Finding what we have",
+};
+
+const FALLBACK = {
+  placeholder: "Type a message…",
+  send: "Send",
+  emptyPrompt: "Ask {name} anything a customer might ask.",
+  orderRecorded: "Order recorded — {total} {currency}",
+  handedOver: "Handed to a colleague",
+  handedOverWhy: "Handed to a colleague — {reason}",
+  poweredBy: "Powered by Signalo",
+  working: "Working",
+  tools: TOOL_LABELS,
+  unreachable: "Could not reach the assistant.",
 };
 
 /**
@@ -22,12 +48,29 @@ export default function ChatPanel({
   personaId,
   greeting,
   personaName = "Assistant",
-  botShape = "bot",
+  botShape = "",
   botAccent = "#c9ced6",
-  placeholder = "Type a message…",
+  placeholder,
+  density = "cosy",
+  starters = [],
+  t,
+  locale = "en",
+  branded = false,
+  origin = "",
+  onStatus,
   className,
   onEvent,
 }) {
+  // The widget's own words, in the visitor's language. Every string below
+  // reads from here, so a missing translation degrades to English rather
+  // than to a blank label.
+  const w = { ...FALLBACK, ...(t || {}), tools: { ...TOOL_LABELS, ...(t?.tools || {}) } };
+  // Two packings, not a slider. A seller asked for "more compact" means the
+  // whole panel tightens together — padding, gaps and bubble size at once —
+  // not one number they have to tune against the others.
+  const d = density === "compact"
+    ? { pad: "px-3 py-3.5", gap: "space-y-2", bubble: "px-3 py-2 text-[12.5px]", form: "p-2.5" }
+    : { pad: "px-4 py-5", gap: "space-y-3", bubble: "px-3.5 py-2.5 text-[13px]", form: "p-3" };
   const [messages, setMessages] = useState(() =>
     greeting ? [{ role: "assistant", content: greeting }] : [],
   );
@@ -123,6 +166,11 @@ export default function ChatPanel({
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
+            // The language the visitor's own browser asked for, resolved
+            // server-side. The assistant's "match the customer" rule then has
+            // something to go on from the very first message, before anyone
+            // has written enough words to tell.
+            locale,
             message: trimmed,
             ...(publicKey ? { public_key: publicKey } : { persona_id: personaId }),
             ...(sessionRef.current ? { session_id: sessionRef.current } : {}),
@@ -132,6 +180,17 @@ export default function ChatPanel({
         if (!res.ok || !res.body) {
           const detail = await res.json().catch(() => ({}));
           throw new Error(detail.message || `Request failed (${res.status})`);
+        }
+
+        // A conversation a colleague has taken over answers with plain JSON,
+        // not a stream. Reading it as one found no events, so the visitor's
+        // message vanished into an empty bubble and nothing said why.
+        if ((res.headers.get("content-type") || "").includes("application/json")) {
+          const body = await res.json().catch(() => ({}));
+          if (body.session_id) sessionRef.current = body.session_id;
+          if (body.handoff) onStatus?.("human");
+          setMessages((m) => m.filter((msg) => msg.id !== streamId));
+          return;
         }
 
         const reader = res.body.getReader();
@@ -179,7 +238,7 @@ export default function ChatPanel({
                 );
                 break;
               case "tool":
-                setActiveTool(TOOL_LABELS[event.name] || "Working");
+                setActiveTool(w.tools[event.name] || w.working);
                 break;
               case "cards":
                 setMessages((m) => [
@@ -193,7 +252,11 @@ export default function ChatPanel({
                   { id: `o${event.order?.id || Date.now()}`, role: "system", kind: "order", order: event.order },
                 ]);
                 break;
+              case "paused":
+                onStatus?.("paused");
+                break;
               case "handoff":
+                onStatus?.("human");
                 setMessages((m) => [
                   ...m,
                   { id: `h${Date.now()}`, role: "system", kind: "handoff", reason: event.reason },
@@ -208,7 +271,7 @@ export default function ChatPanel({
           }
         }
       } catch (err) {
-        if (err.name !== "AbortError") setError(err.message || "Could not reach the assistant.");
+        if (err.name !== "AbortError") setError(err.message || w.unreachable);
       } finally {
         setActiveTool(null);
         setBusy(false);
@@ -221,12 +284,18 @@ export default function ChatPanel({
 
   return (
     <div className={cn("flex flex-col h-full min-h-0 bg-bg", className)}>
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-3 scrollbar-none">
+      {/* The inner wrapper carries the spacing and `mt-auto`, so a two-message
+          conversation sits on the composer the way every chat does, while a
+          long one still scrolls from the top. */}
+      <div ref={scrollRef} className={cn("flex-1 min-h-0 overflow-y-auto scrollbar-none flex flex-col", d.pad)}>
+        <div className={cn("mt-auto w-full", d.gap)}>
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center gap-2 py-10">
-            <BotIcon shape={botShape} accent={botAccent} size={44} />
-            <p className="text-sm text-muted max-w-[240px]">
-              Ask {personaName} anything a customer might ask.
+          <div className="flex flex-col items-center justify-center text-center gap-3 py-12 animate-fade">
+            {/* The orb, not the icon plate: the icon is optional and the orb
+                is what the visitor just clicked. */}
+            <Orb accent={botAccent} size={46} live />
+            <p className="text-[13px] text-muted max-w-[240px] leading-relaxed">
+              {fill(w.emptyPrompt, { name: personaName })}
             </p>
           </div>
         )}
@@ -241,27 +310,28 @@ export default function ChatPanel({
               </div>
             );
           }
+
           if (msg.role === "system") {
+            const order = msg.kind === "order";
             return (
               <div
                 key={msg.id || i}
-                className={cn(
-                  "mx-auto max-w-[85%] rounded-button border px-3 py-2 text-[12px] flex items-center gap-2",
-                  msg.kind === "order"
-                    ? "border-success/40 bg-success/10 text-success"
-                    : "border-warning/40 bg-warning/10 text-warning",
-                )}
+                className="mx-auto w-fit max-w-[90%] rounded-full border border-secondary-transparent bg-secondary-transparent2 px-3 py-1.5 text-[11.5px] flex items-center gap-2 text-secondary animate-pop"
               >
-                {msg.kind === "order" ? (
+                {order ? (
                   <>
-                    <CheckCircle2Icon className="size-3.5 shrink-0" />
-                    Order recorded — {Number(msg.order?.total || 0).toLocaleString()}{" "}
-                    {String(msg.order?.currency || "").toUpperCase()}
+                    <CheckCircle2Icon className="size-3.5 shrink-0 text-success" />
+                    {fill(w.orderRecorded, {
+                      total: Number(msg.order?.total || 0).toLocaleString(locale),
+                      currency: String(msg.order?.currency || "").toUpperCase(),
+                    })}
                   </>
                 ) : (
                   <>
-                    <UserRoundIcon className="size-3.5 shrink-0" />
-                    Handed to a colleague{msg.reason ? ` — ${msg.reason}` : ""}
+                    <UserRoundIcon className="size-3.5 shrink-0 text-warning" />
+                    {msg.reason
+                      ? fill(w.handedOverWhy, { reason: msg.reason })
+                      : w.handedOver}
                   </>
                 )}
               </div>
@@ -269,19 +339,28 @@ export default function ChatPanel({
           }
 
           const mine = msg.role === "customer";
+          // Consecutive messages from one side lose their tail, so a run reads
+          // as one person still talking rather than as separate remarks.
+          const runs = messages[i - 1]?.role === msg.role;
+
           return (
             <div key={msg.id || i} className={cn("flex animate-rise", mine ? "justify-end" : "justify-start")}>
               <div
                 className={cn(
-                  // A tail on the corner nearest its author reads as speech
-                  // rather than as a list of boxes.
-                  "max-w-[85%] px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words rounded-[16px] shadow-sm",
+                  "max-w-[85%] leading-relaxed whitespace-pre-wrap break-words rounded-[18px]",
+                  d.bubble,
                   mine
-                    ? "bg-accent text-primary font-medium rounded-br-[5px]"
+                    ? "font-medium"
                     : msg.agent
-                      ? "bg-info/15 border border-info/35 text-fg rounded-bl-[5px]"
-                      : "bg-secondary-transparent2 border border-secondary-transparent text-fg rounded-bl-[5px]",
+                      ? "border border-info/35 bg-info/15 text-fg"
+                      : "border border-secondary-transparent bg-secondary-transparent2 text-fg",
+                  mine && !runs && "rounded-br-[6px]",
+                  !mine && !runs && "rounded-bl-[6px]",
                 )}
+                // The customer's own bubble is the one place the seller's
+                // colour fills a shape, so its ink is the tested pairing
+                // rather than whichever of black or white looked right once.
+                style={mine ? { background: "var(--color-accent)", color: "var(--color-accent-ink)" } : undefined}
               >
                 {msg.content || (
                   <span className="inline-flex gap-1 py-1">
@@ -293,51 +372,98 @@ export default function ChatPanel({
           );
         })}
 
+        {/* Openers the seller wrote. A blank panel asks the visitor to invent
+            a question; three real ones tell them what this assistant is for,
+            and they disappear the moment anybody types. */}
+        {starters.length > 0 && messages.length <= 1 && !busy && (
+          <div className="flex flex-wrap gap-1.5 pt-1 animate-fade">
+            {starters.slice(0, 4).map((text) => (
+              <button
+                key={text}
+                type="button"
+                onClick={() => send(text)}
+                className="px-3 py-1.5 rounded-full border border-secondary-transparent bg-secondary-transparent2 text-[12px] text-secondary hover:text-fg hover:border-accent/40 transition-colors cursor-pointer text-left"
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        )}
+
         {activeTool && (
           <div className="flex items-center gap-2 text-[11px] text-muted px-1 animate-fade">
             <LoaderIcon className="size-3 animate-spin" />
-            <span className="relative overflow-hidden">
-              {activeTool}…
-            </span>
+            {activeTool}…
           </div>
         )}
 
         {error && (
-          <div className="rounded-button border border-error/40 bg-error/10 px-3 py-2 text-[12px] text-error">
+          <div className="rounded-button border border-error/40 bg-error/10 px-3 py-2 text-[12px] text-error animate-pop">
             {error}
           </div>
         )}
+        </div>
       </div>
 
+      {/* One field, not an input sitting next to a button. The send control
+          lives inside the same surface, which is what every chat a visitor
+          already uses looks like. */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-secondary-transparent p-3 flex items-end gap-2 shrink-0 bg-bg"
+        className={cn("shrink-0 bg-bg", d.form)}
       >
-        <textarea
-          rows={1}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send(input);
-            }
-          }}
-          placeholder={placeholder}
-          disabled={busy}
-          className="flex-1 resize-none bg-secondary-transparent2 border border-secondary-transparent rounded-[14px] px-3.5 py-2.5 text-[13px] text-fg placeholder:text-muted outline-none transition-colors focus:border-accent/45 max-h-28 disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={busy || !input.trim()}
-          aria-label="Send"
-          className="size-9 shrink-0 rounded-full bg-accent text-primary grid place-items-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95"
+        <div
+          className={cn(
+            "flex items-end gap-1.5 rounded-[20px] border border-secondary-transparent bg-secondary-transparent2",
+            "pl-3.5 pr-1.5 py-1.5 transition-colors focus-within:border-accent/45",
+          )}
         >
-          {busy ? <LoaderIcon className="size-4 animate-spin" /> : <SendIcon className="size-4" />}
-        </button>
+          <textarea
+            rows={1}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Grow with the text rather than hiding it behind a scrollbar.
+              e.target.style.height = "auto";
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send(input);
+              }
+            }}
+            placeholder={placeholder || w.placeholder}
+            disabled={busy}
+            className="flex-1 min-w-0 resize-none bg-transparent border-none py-1.5 text-[13px] text-fg placeholder:text-muted outline-none leading-relaxed disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={busy || !input.trim()}
+            aria-label={w.send}
+            className="size-8 shrink-0 rounded-full grid place-items-center disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95"
+            style={{ background: "var(--color-accent)", color: "var(--color-accent-ink)" }}
+          >
+            {busy ? <LoaderIcon className="size-3.5 animate-spin" /> : <SendIcon className="size-3.5" />}
+          </button>
+        </div>
+
+        {/* A line, not a badge. It has to be findable by anyone wondering what
+            this thing is, and invisible to everyone else — which rules out
+            putting it anywhere above the composer. */}
+        {branded && (
+          <a
+            href={`${origin}/?utm_source=widget`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center text-[10px] text-muted/70 hover:text-muted transition-colors mt-1.5"
+          >
+            {w.poweredBy}
+          </a>
+        )}
       </form>
     </div>
   );
@@ -347,7 +473,7 @@ export default function ChatPanel({
 function ItemCard({ card }) {
   const price = Number(card.price || 0);
   return (
-    <div className="w-[150px] shrink-0 rounded-button border border-secondary-transparent bg-secondary-transparent2 overflow-hidden">
+    <div className="w-[150px] shrink-0 rounded-[14px] border border-secondary-transparent bg-secondary-transparent2 overflow-hidden transition-colors hover:border-accent/40">
       {card.image_url ? (
         <img src={card.image_url} alt="" className="w-full h-[96px] object-cover" />
       ) : (

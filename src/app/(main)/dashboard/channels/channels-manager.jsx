@@ -17,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Panel, EmptyState, Loading, Segmented, Toggle, Hint } from "@/components/ui/page";
 import BotIcon, { BotIconPicker } from "@/components/ui/bot-icon";
 import Orb from "@/components/chat/orb";
+import { panelTheme, WIDGET_THEMES as BASE_THEMES } from "@/lib/widget-theme";
+import { languages as LANGUAGES } from "@/config/languages";
+import { LABEL_PRESETS, resolveLauncherLabel } from "@/lib/widget-language";
 import WhatsAppConnect from "./whatsapp-connect";
 import InstagramConnect from "./instagram-connect";
 import {
@@ -112,17 +115,13 @@ function SecretField({ label, placeholder, saved, hint, onSave, pending, p }) {
   );
 }
 
-const WIDGET_THEMES = {
-  dark:  { panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22", panelBorder: "#2a2a32" },
-  light: { panelBg: "#ffffff", panelText: "#14141a", panelSurface: "#f1f1f4", panelBorder: "#e3e3e9" },
-};
-
 const WIDGET_DEFAULTS = {
-  accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 16,
+  accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 20,
   launcherLabel: "", title: "", autoOpen: false, autoOpenDelay: 8, greetingBubble: "",
   theme: "dark", panelBg: null, panelText: null, panelSurface: null,
-  avatarShape: "bot",
+  avatarShape: "",
   launcherStyle: "orb", accent2: "", orbMotion: "alive", orbGlow: true,
+  headerStyle: "full", density: "cosy", starters: "", language: "auto",
 };
 
 /**
@@ -233,6 +232,9 @@ function CopyBox({ value, label }) {
 
 export default function ChannelsManager({ language, origin, signup, igSignup }) {
   const p = language.app.pages.channels;
+  // The widget's own dictionary, so preset labels are named in the language
+  // the seller is reading the dashboard in.
+  const widgetWords = language.widget || {};
   const res = language.app.res;
 
   const { data: channels, isLoading } = useChannels();
@@ -271,6 +273,7 @@ export default function ChannelsManager({ language, origin, signup, igSignup }) 
           base={base}
           signup={signup}
           igSignup={igSignup}
+          widgetWords={widgetWords}
         />
       ))}
 
@@ -300,7 +303,7 @@ export default function ChannelsManager({ language, origin, signup, igSignup }) 
   );
 }
 
-function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
+function ChannelCard({ channel, personas, p, res, base, signup, igSignup, widgetWords }) {
   const updateChannel = useUpdateChannel();
   const deleteChannel = useDeleteChannel();
   const rotateKey = useRotateKey();
@@ -314,7 +317,14 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
   const [tab, setTab] = useState("setup");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [config, setConfig] = useState({ ...WIDGET_DEFAULTS, ...(channel.config || {}) });
-  const themeDefaults = WIDGET_THEMES[config.theme] || WIDGET_THEMES.dark;
+  // The finished palette, exactly as the widget will resolve it — so the
+  // fine-tune fields show the colour that ships, not the one that was typed.
+  const resolved = panelTheme(config);
+  const themeDefaults = {
+    panelBg: (BASE_THEMES[config.theme] || BASE_THEMES.dark).bg,
+    panelText: (BASE_THEMES[config.theme] || BASE_THEMES.dark).fg,
+    panelSurface: resolved.surface,
+  };
 
   const meta = p.types[type] || p.types.web;
   const TypeIcon = TYPE_ICON[type] || GlobeIcon;
@@ -787,7 +797,70 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
                 )}
               </div>
 
-              {/* 3 — pick a look */}
+              {/* 3 — the dialog itself */}
+              <div>
+                <p className="text-[13px] font-medium text-fg mb-1">{p.look.panel}</p>
+                <Hint className="mb-3">{p.look.panelHint}</Hint>
+
+                <Field label={p.look.language} className="mb-4 max-w-[360px]">
+                  <NativeSelect
+                    value={config.language || "auto"}
+                    onChange={(e) => setCfg("language", e.target.value)}
+                  >
+                    <NativeSelectOption value="auto">{p.look.languageAuto}</NativeSelectOption>
+                    {LANGUAGES.map((l) => (
+                      <NativeSelectOption key={l.code} value={l.code}>{l.title}</NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                  <Hint>{p.look.languageHint}</Hint>
+                </Field>
+
+                <div className="flex gap-3 flex-wrap mb-4">
+                  <Field label={p.look.header} className="min-w-[310px]">
+                    <Segmented
+                      value={config.headerStyle || "full"}
+                      onChange={(v) => setCfg("headerStyle", v)}
+                      options={[
+                        { value: "full", label: p.look.headerFull },
+                        { value: "compact", label: p.look.headerCompact },
+                        { value: "hidden", label: p.look.headerHidden },
+                      ]}
+                    />
+                  </Field>
+                  <Field label={p.look.density} className="min-w-[200px]">
+                    <Segmented
+                      value={config.density || "cosy"}
+                      onChange={(v) => setCfg("density", v)}
+                      options={[
+                        { value: "cosy", label: p.look.densityCosy },
+                        { value: "compact", label: p.look.densityCompact },
+                      ]}
+                    />
+                  </Field>
+                  <Field label={p.look.corners} className="w-[120px]">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="28"
+                      value={config.radius}
+                      onChange={(e) => setCfg("radius", e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <Field label={p.look.starters}>
+                  <textarea
+                    rows={3}
+                    value={config.starters || ""}
+                    onChange={(e) => setCfg("starters", e.target.value)}
+                    placeholder={p.look.startersPlaceholder}
+                    className="w-full resize-none bg-secondary-transparent2 border border-secondary-transparent rounded-button px-3 py-2.5 text-[13px] text-fg placeholder:text-muted outline-none focus:border-secondary/50 transition-colors leading-relaxed"
+                  />
+                  <Hint>{p.look.startersHint}</Hint>
+                </Field>
+              </div>
+
+              {/* 4 — pick a look */}
               <div>
                 <p className="text-[13px] font-medium text-fg mb-1">{p.look.presets}</p>
                 <Hint className="mb-3">{p.look.presetsHint}</Hint>
@@ -847,8 +920,44 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
                   <Input value={config.title} onChange={(e) => setCfg("title", e.target.value)} placeholder={channel.name} />
                 </Field>
                 <Field label={p.look.launcherLabel}>
-                  <Input value={config.launcherLabel} onChange={(e) => setCfg("launcherLabel", e.target.value)} placeholder={p.look.launcherLabelPlaceholder} />
-                  <Hint>{p.look.launcherLabelHint}</Hint>
+                  {/* A preset is translated for each visitor; anything typed
+                      by hand is shown to all of them exactly as written. */}
+                  <NativeSelect
+                    value={
+                      String(config.launcherLabel || "").startsWith("preset:")
+                        ? config.launcherLabel
+                        : config.launcherLabel
+                          ? "custom"
+                          : ""
+                    }
+                    onChange={(e) =>
+                      setCfg("launcherLabel", e.target.value === "custom" ? " " : e.target.value)
+                    }
+                  >
+                    <NativeSelectOption value="">{p.look.labelNone}</NativeSelectOption>
+                    {LABEL_PRESETS.map((key) => (
+                      <NativeSelectOption key={key} value={`preset:${key}`}>
+                        {widgetWords.labels?.[key] || key}
+                      </NativeSelectOption>
+                    ))}
+                    <NativeSelectOption value="custom">{p.look.labelCustom}</NativeSelectOption>
+                  </NativeSelect>
+
+                  {Boolean(config.launcherLabel) &&
+                    !String(config.launcherLabel).startsWith("preset:") && (
+                      <Input
+                        className="mt-2"
+                        autoFocus
+                        value={config.launcherLabel.trim() ? config.launcherLabel : ""}
+                        onChange={(e) => setCfg("launcherLabel", e.target.value || " ")}
+                        placeholder={p.look.launcherLabelPlaceholder}
+                      />
+                    )}
+                  <Hint>
+                    {String(config.launcherLabel || "").startsWith("preset:")
+                      ? p.look.labelPresetHint
+                      : p.look.launcherLabelHint}
+                  </Hint>
                 </Field>
                 <Field label={p.look.greetingBubble}>
                   <Input value={config.greetingBubble} onChange={(e) => setCfg("greetingBubble", e.target.value)} placeholder={p.look.greetingBubblePlaceholder} />
@@ -923,7 +1032,12 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
                         size: Number(config.size) || 56,
                         offset: Number(config.offset) || 20,
                         autoOpenDelay: Number(config.autoOpenDelay) || 8,
-                        avatarShape: config.avatarShape || "bot",
+                        avatarShape: config.avatarShape || "",
+                        radius: Math.max(0, Math.min(Number(config.radius) || 20, 28)),
+                        headerStyle: config.headerStyle || "full",
+                        density: config.density || "cosy",
+                        starters: (config.starters || "").trim(),
+                        language: config.language || "auto",
                         launcherStyle: config.launcherStyle || "orb",
                         orbMotion: config.orbMotion || "alive",
                         orbGlow: config.orbGlow !== false,
@@ -938,7 +1052,7 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
               </Button>
             </div>
 
-            <WidgetPreview config={config} channel={channel} p={p} />
+            <WidgetPreview config={config} channel={channel} p={p} widgetWords={widgetWords} />
           </div>
         )}
 
@@ -998,23 +1112,36 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup }) {
   );
 }
 
-/** A miniature of the customer's page, showing the panel as it will look. */
-function WidgetPreview({ config, channel, p }) {
-  const theme = WIDGET_THEMES[config.theme] || WIDGET_THEMES.dark;
+/**
+ * A miniature of the customer's page, showing the panel as it will ship.
+ *
+ * It runs the same palette engine and the same orb the widget does, so a
+ * seller can trust it. The previous one drew a flat circle and its own
+ * colours, which is how a setting could look fine here and wrong on the site.
+ */
+function WidgetPreview({ config, channel, p, widgetWords }) {
+  const t = panelTheme(config);
   const left = config.position === "left";
-  const bg = config.panelBg || theme.panelBg;
-  const text = config.panelText || theme.panelText;
-  const surface = config.panelSurface || theme.panelSurface;
-  const border = theme.panelBorder;
-  const accent = config.accent || "#c9ced6";
+  const orb = (config.launcherStyle || "orb") !== "button";
+  const header = config.headerStyle || "full";
+  const compact = config.density === "compact";
+
   const size = Math.max(36, Math.min(Number(config.size) || 56, 72)) * 0.6;
   const edge = (Number(config.offset) || 20) * 0.5;
-  const orb = (config.launcherStyle || "orb") !== "button";
+  const radius = Math.max(0, Math.min(Number(config.radius) || 20, 28));
+
+  const label = resolveLauncherLabel(config.launcherLabel, widgetWords).trim();
+
+  const starters = String(config.starters || "")
+    .split("\n")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 2);
 
   return (
     <div className="laptop-2:sticky laptop-2:top-4">
       <p className="text-[11px] font-mono uppercase tracking-wider text-muted mb-1.5">{p.look.preview}</p>
-      <div className="relative h-[360px] rounded-module border border-secondary-transparent bg-[#f2f2f4] overflow-hidden">
+      <div className="relative h-[380px] rounded-module border border-secondary-transparent bg-[#f2f2f4] overflow-hidden">
         {/* stand-in for the customer's own page */}
         <div className="p-3 space-y-2 opacity-40">
           <div className="h-2 w-2/3 rounded bg-black/25" />
@@ -1022,81 +1149,117 @@ function WidgetPreview({ config, channel, p }) {
           <div className="h-2 w-4/5 rounded bg-black/15" />
         </div>
 
-        {/* the chat panel itself */}
+        {/* the dialog */}
         <div
-          className="absolute flex flex-col overflow-hidden shadow-xl"
+          className="absolute flex flex-col overflow-hidden"
           style={{
-            background: bg,
-            color: text,
-            border: `1px solid ${border}`,
-            borderRadius: `${Number(config.radius) || 16}px`,
-            width: 168,
-            height: 216,
-            bottom: edge + size + 8,
+            background: t.bg,
+            color: t.fg,
+            border: `1px solid ${t.border}`,
+            borderRadius: `${radius}px`,
+            boxShadow: "0 14px 36px rgba(0,0,0,.22)",
+            width: 176,
+            height: 232,
+            bottom: edge + size + 10,
             [left ? "left" : "right"]: edge,
           }}
         >
-          <div
-            className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 min-w-0"
-            style={{ borderBottom: `1px solid ${border}` }}
-          >
-            <BotIcon shape={config.avatarShape} accent={accent} size={18} rounded="rounded-[5px]" />
-            <span className="text-[9px] font-semibold truncate min-w-0">
-              {config.title || channel.name}
-            </span>
-          </div>
+          {header !== "hidden" && (
+            <div className="relative shrink-0">
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 -top-10 h-16"
+                style={{
+                  background: `radial-gradient(58% 72% at 16% 100%, ${t.accentOnPanel}33 0%, transparent 72%)`,
+                }}
+              />
+              <div className="relative flex items-center gap-1.5 px-2 py-1.5 min-w-0">
+                {header === "full" && (
+                  <Orb accent={t.accent} accent2={config.accent2} motion="still" size={16} />
+                )}
+                <span className="text-[9px] font-semibold truncate min-w-0">
+                  {config.title || channel.name}
+                </span>
+                <span
+                  className="ml-auto size-3 rounded-full shrink-0"
+                  style={{ background: `${t.fg}14` }}
+                />
+              </div>
+              <span className="block h-px" style={{ background: t.border }} />
+            </div>
+          )}
 
-          <div className="flex-1 p-2 space-y-1.5 overflow-hidden">
+          <div className={cn("flex-1 overflow-hidden", compact ? "p-1.5 space-y-1" : "p-2 space-y-1.5")}>
             <div
-              className="max-w-[80%] px-2 py-1 rounded-[7px] text-[8px] leading-snug"
-              style={{ background: surface }}
+              className="max-w-[86%] px-2 py-1 rounded-[9px] rounded-bl-[3px] text-[8px] leading-snug"
+              style={{ background: t.surface, border: `1px solid ${t.border}` }}
             >
               {p.look.sampleBot}
             </div>
             <div
-              className="max-w-[70%] ml-auto px-2 py-1 rounded-[7px] text-[8px] leading-snug font-medium"
-              style={{ background: accent, color: bg }}
+              className="max-w-[72%] ml-auto px-2 py-1 rounded-[9px] rounded-br-[3px] text-[8px] leading-snug font-medium"
+              style={{ background: t.accent, color: t.accentInk }}
             >
               {p.look.sampleUser}
             </div>
+            {starters.map((text) => (
+              <div
+                key={text}
+                className="inline-block mr-1 px-1.5 py-0.5 rounded-full text-[7px] truncate max-w-full"
+                style={{ border: `1px solid ${t.border}`, color: t.secondary }}
+              >
+                {text}
+              </div>
+            ))}
           </div>
 
-          <div className="flex items-center gap-1 p-1.5 shrink-0" style={{ borderTop: `1px solid ${border}` }}>
-            <div className="flex-1 h-4 rounded-[5px]" style={{ background: surface }} />
-            <div className="size-4 rounded-[5px] shrink-0" style={{ background: accent }} />
+          <div className={cn("shrink-0", compact ? "p-1.5" : "p-2")}>
+            <div
+              className="flex items-center gap-1 rounded-full pl-2 pr-1 py-1"
+              style={{ background: t.surface, border: `1px solid ${t.border}` }}
+            >
+              <span className="flex-1 h-2 rounded-full" style={{ background: `${t.fg}12` }} />
+              <span className="size-3.5 rounded-full shrink-0" style={{ background: t.accent }} />
+            </div>
           </div>
         </div>
 
         {config.greetingBubble && (
           <div
-            className="absolute max-w-[140px] px-2 py-1 rounded-[9px] bg-white text-[#111] text-[9px] leading-snug shadow"
-            style={{ bottom: edge + size + 232, [left ? "left" : "right"]: edge }}
+            className="absolute max-w-[140px] px-2 py-1 text-[9px] leading-snug shadow"
+            style={{
+              bottom: edge + size + 248,
+              [left ? "left" : "right"]: edge,
+              background: t.surface,
+              color: t.fg,
+              border: `1px solid ${t.border}`,
+              borderRadius: Math.min(radius, 14),
+            }}
           >
             {config.greetingBubble}
           </div>
         )}
 
-        {/* The launcher, drawn the way the visitor will actually see it —
-            a flat circle here meant the orb could only be judged live. */}
+        {/* The launcher, drawn the way the visitor will actually see it. */}
         {orb ? (
           <div
             className={cn(
               "absolute flex items-center gap-2",
-              config.launcherLabel &&
+              label &&
                 "px-2 py-1 pr-3 rounded-full bg-[rgba(20,20,24,.72)] backdrop-blur-sm shadow-lg",
             )}
             style={{ bottom: edge, [left ? "left" : "right"]: edge }}
           >
             <Orb
-              accent={accent}
+              accent={t.accent}
               accent2={config.accent2}
               motion={config.orbMotion}
-              size={config.launcherLabel ? size * 0.72 : size}
+              size={label ? size * 0.72 : size}
               live={config.orbGlow !== false}
             />
-            {config.launcherLabel && (
+            {label && (
               <span className="text-[10px] font-semibold text-white whitespace-nowrap">
-                {config.launcherLabel}
+                {label}
               </span>
             )}
           </div>
@@ -1104,14 +1267,14 @@ function WidgetPreview({ config, channel, p }) {
           <div
             className="absolute rounded-full grid place-items-center shadow-lg"
             style={{
-              background: accent, color: bg, height: size, minWidth: size,
-              padding: config.launcherLabel ? "0 10px" : 0,
+              background: t.accent, color: t.accentInk, height: size, minWidth: size,
+              padding: label ? "0 10px" : 0,
               bottom: edge, [left ? "left" : "right"]: edge,
             }}
           >
             <span className="text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 px-0.5">
-              <BotIcon shape={config.avatarShape} accent={accent} size={16} bare />
-              {config.launcherLabel}
+              <BotIcon shape={config.avatarShape} accent={t.accent} size={16} bare />
+              {label}
             </span>
           </div>
         )}

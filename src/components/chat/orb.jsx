@@ -32,8 +32,9 @@ export default function Orb({
   // the right answer on a page that is already busy.
   const spin = { alive: 14, calm: 30, still: 0 }[motion] ?? 14;
 
-  // A partner hue keeps the swirl from being a flat wash of one colour. An
-  // explicit second colour always wins over the derived one.
+  // A partner hue keeps the swirl from being a flat wash of one colour. The
+  // rotation is small on purpose: a wider one sent an orange accent into
+  // yellow-green, which is nobody's brand. An explicit second colour wins.
   const hue = accent2 || (() => {
     const [r, g, b] = rgb(accent).map((v) => v / 255);
     const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
@@ -48,7 +49,7 @@ export default function Orb({
     }
     // A near-grey accent stays grey rather than growing a colour of its own.
     if (sat < 0.16) return `hsl(${Math.round(h)},6%,${Math.round(Math.min(l + 0.22, 0.92) * 100)}%)`;
-    return `hsl(${Math.round((h + 48) % 360)},${Math.round(sat * 100)}%,62%)`;
+    return `hsl(${Math.round((h + 26) % 360)},${Math.round(sat * 100)}%,64%)`;
   })();
 
   return (

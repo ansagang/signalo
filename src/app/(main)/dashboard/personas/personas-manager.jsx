@@ -328,6 +328,10 @@ function PersonaEditor({ persona, p, res, language }) {
             greeting={persona.greeting}
             personaName={persona.name}
             placeholder={p.playground.placeholder}
+            // The playground is addressed to the seller, not to a customer,
+            // so it keeps the longer prompt the widget dropped.
+            t={{ ...language.widget, emptyPrompt: p.playground.emptyPrompt }}
+            locale={language.lang}
             className="flex-1 min-h-0"
           />
         </Panel>

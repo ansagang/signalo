@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import Script from "next/script";
 import { getLanguage } from "@/lib/get-language";
 import LandingNav from "./landing-nav";
 import FaqList from "./faq-list";
 import Conversation from "./conversation";
+import DemoWidget from "./demo-widget";
 import {
   ArrowRightIcon, BookOpenIcon, BoxIcon, CalendarCheckIcon, CheckIcon,
   GlobeIcon, LanguagesIcon, MailIcon, MessageCircleIcon, ScrollTextIcon,
@@ -58,7 +58,7 @@ export default async function LandingPage() {
 
   return (
     <>
-      <LandingNav p={p} />
+      <LandingNav p={p} language={language} />
 
       {/* ── hero ── */}
       <section className="relative overflow-hidden">
@@ -282,7 +282,7 @@ export default async function LandingPage() {
       <footer className="border-t border-secondary-transparent">
         <div className="mx-auto max-w-[1180px] px-6 py-10 flex flex-col tablet:flex-row items-center gap-4">
           <Image
-            src="/images/logo-banner-trans.png"
+            src="/images/logo-trans.png"
             alt="Signalo"
             width={110}
             height={26}
@@ -296,7 +296,7 @@ export default async function LandingPage() {
       </footer>
 
       {/* The product itself, embedded exactly the way a customer would. */}
-      {demoKey && <Script src="/widget.js" data-key={demoKey} strategy="afterInteractive" />}
+      <DemoWidget widgetKey={demoKey} lang={language.lang} />
     </>
   );
 }

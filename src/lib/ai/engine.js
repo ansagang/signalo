@@ -5,6 +5,7 @@ import { retrieveContext, formatContext } from "./retrieval";
 import { buildPersonaPrompt, buildContextPrompt } from "./persona";
 import { anthropicTools, runTool } from "./tools";
 import { recordUsage, canSpend } from "@/lib/services/billing";
+import { mustTryBeforeEscalating } from "@/lib/ai/handoff";
 
 const MAX_TOOL_TURNS = 5;
 const HISTORY_LIMIT = 24;
@@ -242,6 +243,9 @@ export async function* runChat({
     supabase,
     userId,
     conversationId: conversation.id,
+    // The whole row, because request_human has to know whether a colleague
+    // has just handed this back on purpose.
+    conversation,
     timezone,
     // Who this customer is allowed to act on behalf of. On a channel that
     // proves identity their address counts; on the web widget only this
@@ -331,7 +335,14 @@ export async function* runChat({
       text: buildPersonaPrompt(persona, { businessName }),
       cache_control: { type: "ephemeral" }, // stable half — cached across turns
     },
-    { type: "text", text: buildContextPrompt(persona, contextBlock, { timezone, record }) },
+    {
+      type: "text",
+      text: buildContextPrompt(persona, contextBlock, {
+        timezone,
+        record,
+        handedBack: await mustTryBeforeEscalating(supabase, conversation),
+      }),
+    },
   ];
 
   // Tokens add up across every turn of the tool loop, then bill once.

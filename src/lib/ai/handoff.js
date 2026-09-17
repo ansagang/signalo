@@ -60,10 +60,44 @@ export async function handoffState(supabase, conversation, now = new Date()) {
   return { reply: false, release: false, why: "agent_active" };
 }
 
-/** Hand the conversation back to the assistant. */
-export async function releaseHandoff(supabase, conversationId) {
+/**
+ * Hand the conversation back to the assistant.
+ *
+ * The timestamp is the point: clearing the flag let the assistant speak
+ * again, but the transcript still ended with "a colleague will help", so it
+ * read the room the same way and escalated on the customer's next message.
+ * `handoff_released_at` is what `request_human` checks before it is allowed
+ * to undo a person's decision.
+ */
+export async function releaseHandoff(supabase, conversationId, at = new Date()) {
   await supabase
     .from("conversations")
-    .update({ handoff: false, handoff_at: null, status: "open" })
+    .update({
+      handoff: false,
+      handoff_at: null,
+      status: "open",
+      handoff_released_at: at.toISOString(),
+    })
     .eq("id", conversationId);
+}
+
+/**
+ * Whether the assistant has already had its turn since being handed back.
+ *
+ * One reply is the whole bar. It stops an agent's decision being reversed
+ * before it takes effect, without pretending the assistant can handle
+ * something it genuinely cannot.
+ */
+export async function mustTryBeforeEscalating(supabase, conversation) {
+  const releasedAt = conversation?.handoff_released_at;
+  if (!releasedAt) return false;
+
+  const { count } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversation.id)
+    .eq("role", "assistant")
+    .gt("created_at", releasedAt);
+
+  return (count || 0) === 0;
 }

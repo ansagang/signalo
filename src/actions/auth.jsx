@@ -133,9 +133,6 @@ export async function updateUserLanguage({ user, lang }, t) {
             return res
         }
     } else {
-        return {
-            success: false,
-            message: t.accountRequired
-        }
+        await setCookie({name: "lang", value: lang})
     }
 }

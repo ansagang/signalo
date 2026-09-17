@@ -1,7 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import ChatPanel from "@/components/chat/chat-panel";
-import Orb from "@/components/chat/orb";
+import ChatShell from "@/components/chat/chat-shell";
+import { panelTheme, paletteVars } from "@/lib/widget-theme";
+import { canSpend } from "@/lib/services/billing";
 import { notFound } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import { resolveWidgetLocale, widgetStrings } from "@/lib/widget-language";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +17,22 @@ export const metadata = {
  * by /widget.js. The public key in the URL is the only credential; it maps to
  * exactly one channel and nothing else is trusted from the request.
  */
-export default async function PublicChatPage({ params }) {
+/**
+ * Openers are stored as one text block because a list of inputs is a worse
+ * thing to edit than a textarea. Blank lines and stray whitespace are the
+ * normal result of typing one, so they are cleaned here rather than trusted.
+ */
+function parseStarters(raw) {
+  return String(raw || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+export default async function PublicChatPage({ params, searchParams }) {
   const { key } = await params;
+  const { lang: requested } = (await searchParams) || {};
   const supabase = createServiceClient();
 
   const { data: channel } = await supabase
@@ -33,79 +50,62 @@ export default async function PublicChatPage({ params }) {
     .eq("user_id", channel.user_id)
     .maybeSingle();
 
+  const config = channel.config || {};
+  const theme = panelTheme(config);
+
+  // The visitor's own browser decides, unless the seller pinned a language.
+  // Their profile is the last resort — a Kazakh salon with no signal from the
+  // visitor is better served in Kazakh than in English.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("lang")
+    .eq("id", channel.user_id)
+    .maybeSingle();
+
+  const locale = resolveWidgetLocale({
+    requested,
+    pinned: config.language,
+    cookieLocale: (await cookies()).get("lang")?.value,
+    acceptLanguage: (await headers()).get("accept-language"),
+    sellerLocale: profile?.lang,
+  });
+  const t = await widgetStrings(locale);
+
   if (!channel.is_active || !persona) {
     return (
-      <main className="h-dvh grid place-items-center bg-bg px-6">
+      <main className="h-dvh grid place-items-center px-6" style={{ ...paletteVars(theme), background: theme.bg }}>
         <div className="text-center">
-          <p className="text-h4 text-fg mb-1">Currently offline</p>
-          <p className="info-2 text-sm">Please try again later.</p>
+          <p className="text-[15px] font-semibold text-fg mb-1">{t.offline}</p>
+          <p className="text-[13px] text-muted">{t.offlineHint}</p>
         </div>
       </main>
     );
   }
 
-  const config = channel.config || {};
-  const title = config.title || channel.name;
-
-  const THEMES = {
-    dark:  { panelBg: "#0a0a0c", panelText: "#f4f4f6", panelSurface: "#1c1c22", panelBorder: "#2a2a32" },
-    light: { panelBg: "#ffffff", panelText: "#14141a", panelSurface: "#f1f1f4", panelBorder: "#e3e3e9" },
-  };
-  const theme = THEMES[config.theme] || THEMES.dark;
-  const hex = (v) => (/^#[0-9a-f]{3,8}$/i.test(v || "") ? v : null);
-
-  // Drive the design tokens the panel is already built on, so bubbles, input,
-  // borders and buttons all follow the seller's colours without each needing
-  // its own override.
-  const palette = {
-    "--color-accent": hex(config.accent) || "#c9ced6",
-    "--color-bg": hex(config.panelBg) || theme.panelBg,
-    "--color-fg": hex(config.panelText) || theme.panelText,
-    "--color-secondary-transparent2": hex(config.panelSurface) || theme.panelSurface,
-    "--color-secondary-transparent": theme.panelBorder,
-    "--color-primary": hex(config.panelBg) || theme.panelBg,
-  };
+  // Whether the assistant can answer at all. An account with no credits left
+  // escalates every message to a person instead of replying, and the header
+  // should say so rather than leaving a customer talking to nothing.
+  const { ok: canReply } = await canSpend(supabase, channel.user_id);
 
   return (
-    // The accent chosen in the dashboard drives the whole panel, not just the
-    // launcher — send button, customer bubbles and the header dot.
-    <main className="h-dvh flex flex-col bg-bg" style={palette}>
-      {/* The orb from the launcher again, so the thing they clicked and the
-          thing now talking are obviously the same. */}
-      <header className="relative flex items-center gap-3 px-4 py-3.5 shrink-0 overflow-hidden">
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-24 h-40 opacity-[0.18]"
-          style={{
-            background: `radial-gradient(60% 70% at 18% 100%, ${palette["--color-accent"]} 0%, transparent 70%)`,
-          }}
-        />
-        <Orb
-          accent={palette["--color-accent"]}
-          accent2={hex(config.accent2) || ""}
-          motion={config.orbMotion}
-          live={config.orbGlow !== false}
-          size={38}
-          className="relative"
-        />
-        <div className="min-w-0 relative">
-          <p className="text-[13.5px] font-semibold text-fg truncate leading-tight">{title}</p>
-          <p className="text-[11px] text-fg/55 flex items-center gap-1.5 mt-0.5">
-            <span className="size-1.5 rounded-full bg-accent" />
-            {persona.name}
-          </p>
-        </div>
-      </header>
-      <div className="h-px bg-gradient-to-r from-transparent via-[var(--color-secondary-transparent)] to-transparent shrink-0" />
-
-      <ChatPanel
-        publicKey={key}
-        botShape={config.avatarShape}
-        botAccent={palette["--color-accent"]}
-        greeting={persona.greeting}
-        personaName={persona.name}
-        className="flex-1 min-h-0"
-      />
-    </main>
+    <ChatShell
+      theme={theme}
+      config={config}
+      title={config.title || channel.name}
+      status={canReply ? "assistant" : "paused"}
+      t={t}
+      panel={{
+        publicKey: key,
+        botShape: config.avatarShape,
+        botAccent: theme.accent,
+        greeting: persona.greeting,
+        personaName: persona.name,
+        density: config.density,
+        starters: parseStarters(config.starters),
+        locale,
+        branded: true,
+        origin: process.env.URL?.replace(/\/$/, "") || "",
+      }}
+    />
   );
 }

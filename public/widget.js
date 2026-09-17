@@ -33,12 +33,28 @@
 
   var origin = new URL(script.src, window.location.href).origin;
 
+  // A site with its own language switcher tells us which language the visitor
+  // is reading now. Without it the widget keeps whichever language it booted
+  // in until the whole page reloads.
+  var lang = script.getAttribute("data-lang") || "";
+
+  function configUrl() {
+    return origin + "/api/widget/" + encodeURIComponent(key) +
+      "?t=" + Date.now() + (lang ? "&lang=" + encodeURIComponent(lang) : "");
+  }
+
+  function frameUrl() {
+    return origin + "/c/" + encodeURIComponent(key) + (lang ? "?lang=" + encodeURIComponent(lang) : "");
+  }
+
   var DEFAULTS = {
-    accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 16,
-    launcherLabel: "", title: "Chat", subtitle: "", avatarShape: "bot",
+    accent: "#c9ced6", position: "right", offset: 20, size: 56, radius: 20,
+    launcherLabel: "", title: "Chat", subtitle: "", avatarShape: "",
     autoOpen: false, autoOpenDelay: 8, theme: "dark", greetingBubble: "",
     // The launcher's own look. accent2 empty means "derive it from accent".
     launcherStyle: "orb", accent2: "", orbMotion: "alive", orbGlow: true,
+    // Resolved server-side, because the launcher should not carry dictionaries.
+    labelOpen: "Open chat", labelClose: "Close chat",
   };
 
   function attr(name) {
@@ -101,7 +117,7 @@
     // A near-grey accent must stay grey. Forcing saturation here put a purple
     // swirl inside a silver logo's orb.
     if (sat < 0.16) return "hsl(" + Math.round(h) + ",6%," + Math.round(Math.min(l + 0.22, 0.92) * 100) + "%)";
-    return "hsl(" + Math.round((h + 48) % 360) + "," + Math.round(sat * 100) + "%,62%)";
+    return "hsl(" + Math.round((h + 26) % 360) + "," + Math.round(sat * 100) + "%,64%)";
   }
 
   /** Injected once; the orb is pure CSS so the widget stays dependency-free. */
@@ -127,7 +143,7 @@
     var side = config.position === "left" ? "left" : "right";
     var offset = parseInt(config.offset, 10) || 20;
     var size = parseInt(config.size, 10) || 56;
-    var radius = parseInt(config.radius, 10) || 16;
+    var radius = parseInt(config.radius, 10) || 20;
     var open = false;
     var dismissedGreeting = false;
 
@@ -135,6 +151,8 @@
     // The orb carries a gradient, a swirl and a glyph; under about 44px those
     // read as mud. The classic button is happy small, so only clamp the orb.
     var orbSize = Math.min(Math.max(size, 44), 96);
+    // Reassigned by setLanguage: a preset label has a different length in
+    // each language, and the pill only exists when there is one.
     var hasLabel = Boolean(config.launcherLabel);
     var accent2 = config.accent2 || partner(config.accent);
 
@@ -149,10 +167,18 @@
       // The halo breathes rather than pulses: a heartbeat in the corner of the
       // eye is distracting, a slow swell reads as alive.
       "@keyframes sg-breathe{0%,100%{opacity:.45}50%{opacity:.8}}",
+      "@keyframes sg-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}",
       
+      // border-radius matters even though the button is transparent: the
+      // browser's own focus ring follows the button box, and a square ring
+      // around a round orb is what it drew before this was set.
       ".sg-orb{position:relative;display:inline-flex;align-items:center;justify-content:center;border:none;",
-      "background:transparent;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;",
+      "background:transparent;cursor:pointer;padding:0;border-radius:999px;",
+      "-webkit-tap-highlight-color:transparent;outline:none;",
       "transition:transform .25s cubic-bezier(.2,.9,.3,1.2)}",
+      // Keyboard users still need to see where they are, so the ring is
+      // replaced rather than removed.
+      ".sg-orb:focus-visible{outline:2px solid " + accent2 + ";outline-offset:3px}",
       ".sg-orb:hover{transform:scale(1.05)}",
       ".sg-orb:active{transform:scale(.97)}",
       ".sg-orbwrap{position:relative;display:inline-block;flex:none}",
@@ -174,7 +200,10 @@
 
     var launcher = document.createElement("button");
     launcher.type = "button";
-    launcher.setAttribute("aria-label", config.title || "Chat");
+    function labelLauncher() {
+      launcher.setAttribute("aria-label", open ? config.labelClose : config.labelOpen);
+    }
+    labelLauncher();
     launcher.className = orbMode ? "sg-orb" : "";
 
     if (orbMode) {
@@ -221,8 +250,10 @@
       rocket: '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/>',
     };
 
+    /** An unknown or absent shape draws nothing at all, not an empty box. */
     function shapeSvg(name, px, weight) {
-      var body = SHAPES[name] || SHAPES.message;
+      var body = SHAPES[name];
+      if (!body) return "";
       return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none" ' +
         'stroke="currentColor" stroke-width="' + (weight || 2) + '" stroke-linecap="round" stroke-linejoin="round">' +
         body + "</svg>";
@@ -245,11 +276,10 @@
       var light = shade(config.accent, 0.42);
       var deep = shade(config.accent, -0.42);
       var glyphPx = Math.round(px * 0.38);
-      var glyph = config.avatarShape
-        ? shapeSvg(config.avatarShape, glyphPx, 1.6)
-        : config.avatar
+      var glyph = shapeSvg(config.avatarShape, glyphPx, 1.6) ||
+        (config.avatar
           ? '<span style="font-size:' + glyphPx + 'px;line-height:1">' + config.avatar + "</span>"
-          : "";
+          : "");
 
       return (
         '<span class="sg-orbwrap" style="width:' + px + "px;height:" + px + 'px">' +
@@ -277,11 +307,12 @@
         // Proportional to the button: enough presence to read at a glance,
         // with the circle still visible around it.
         var glyph = Math.round(size * 0.52);
-        var avatar = config.avatarShape
-          ? shapeSvg(config.avatarShape, glyph)
-          : config.avatar
+        // The classic button is a shape with something in it, so unlike the
+        // orb it always needs a glyph — the chat bubble when none was chosen.
+        var avatar = shapeSvg(config.avatarShape, glyph) ||
+          (config.avatar
             ? '<span style="font-size:22px;line-height:1">' + config.avatar + "</span>"
-            : ICON_CHAT;
+            : ICON_CHAT);
         launcher.innerHTML = avatar + (hasLabel
           ? '<span style="white-space:nowrap">' + config.launcherLabel + "</span>" : "");
         return;
@@ -289,13 +320,15 @@
 
       if (open) {
         // Closing is a plain control, not a mood: the orb would keep drawing
-        // the eye to a window the visitor is already looking at.
+        // the eye to a window the visitor is already looking at. It wears the
+        // panel's own colours so the two read as one object.
         launcher.className = "sg-orb";
         launcher.innerHTML =
           '<span class="sg-orbwrap" style="width:' + orbSize + "px;height:" + orbSize + 'px">' +
           '<span class="sg-ball" style="display:grid;place-items:center;background:' +
-          shade(config.accent, -0.25) + ";color:" + inkOn(shade(config.accent, -0.25)) +
-          ';box-shadow:0 6px 20px rgba(0,0,0,.35)">' + ICON_CLOSE + "</span></span>";
+          (config.panelSurface || "#1c1c22") + ";color:" + (config.panelText || "#f4f4f6") +
+          ";border:1px solid " + (config.panelBorder || "#2a2a32") +
+          ';box-shadow:0 8px 24px rgba(0,0,0,.3)">' + ICON_CLOSE + "</span></span>";
         return;
       }
 
@@ -322,12 +355,16 @@
     }
 
     var frame = document.createElement("iframe");
-    frame.src = origin + "/c/" + encodeURIComponent(key);
+    frame.src = frameUrl();
     frame.title = config.title || "Chat";
+    // Two shadows and a hairline rather than one heavy drop: the panel has to
+    // sit on a white marketing page and a dark one without looking pasted on.
     frame.style.cssText = [
       "position:fixed", "border:none", "z-index:2147483645", "display:none",
-      "background:transparent", "overflow:hidden",
-      "box-shadow:0 24px 70px rgba(0,0,0,.45)", "border-radius:" + radius + "px",
+      "background:transparent", "overflow:hidden", "color-scheme:normal",
+      "box-shadow:0 1px 0 " + rgba(config.panelBorder || "#2a2a32", 1) +
+        ",0 18px 48px rgba(0,0,0,.28),0 48px 90px rgba(0,0,0,.22)",
+      "border-radius:" + radius + "px",
       "opacity:0", "transform:translateY(12px) scale(.97)",
       "transform-origin:" + (side === "right" ? "bottom right" : "bottom left"),
       "transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.15)",
@@ -338,18 +375,32 @@
     if (config.greetingBubble) {
       bubble = document.createElement("div");
       bubble.textContent = config.greetingBubble;
+      // It used to be hardcoded white with black text, which hung off a dark
+      // widget like a sticker. It is the panel's own material now.
       bubble.style.cssText = [
         "position:fixed", "bottom:" + (offset + size + 12) + "px", side + ":" + offset + "px",
-        "max-width:240px", "padding:10px 14px", "border-radius:14px",
-        "background:#fff", "color:#111", "box-shadow:0 6px 24px rgba(0,0,0,.22)",
+        "max-width:250px", "padding:10px 14px",
+        "border-radius:" + Math.min(radius, 18) + "px",
+        "background:" + (config.panelSurface || "#1c1c22"),
+        "color:" + (config.panelText || "#f4f4f6"),
+        "border:1px solid " + (config.panelBorder || "#2a2a32"),
+        "box-shadow:0 10px 30px rgba(0,0,0,.28)",
         "font:500 13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
         "z-index:2147483646", "cursor:pointer",
+        "animation:sg-rise .3s cubic-bezier(.2,.9,.3,1.1) both",
       ].join(";");
       bubble.addEventListener("click", function () { setOpen(true); });
     }
 
+    var narrow = false;
+
     function layout() {
-      var narrow = window.innerWidth <= 480;
+      narrow = window.innerWidth <= 480;
+
+      // Full screen leaves no page to return to, so the launcher would just
+      // sit on top of the composer. The panel carries its own close control.
+      launcher.style.display = open && narrow ? "none" : "";
+
       if (narrow) {
         frame.style.width = "100vw";
         frame.style.height = "100dvh";
@@ -383,6 +434,8 @@
         setTimeout(function () { if (!open) frame.style.display = "none"; }, 220);
       }
       paintLauncher();
+      labelLauncher();
+      launcher.style.display = open && narrow ? "none" : "";
       if (bubble && open) { bubble.remove(); dismissedGreeting = true; }
       if (open && byVisitor !== false) {
         try {
@@ -393,6 +446,15 @@
 
     launcher.addEventListener("click", function () { setOpen(!open); });
     window.addEventListener("resize", layout);
+
+    // On a phone the panel fills the screen and the launcher is behind it, so
+    // the close control has to live inside the panel and ask to be closed.
+    function onMessage(event) {
+      if (event.source !== frame.contentWindow) return;
+      var data = event.data;
+      if (data && data.type === "signalo:close" && open) setOpen(false);
+    }
+    window.addEventListener("message", onMessage);
 
     function mount() {
       document.body.appendChild(frame);
@@ -414,22 +476,71 @@
       }
     }
 
+    /**
+     * Take the widget off the page.
+     *
+     * Single-page sites navigate without reloading, so a launcher mounted on
+     * one route stayed pinned to the corner of every route after it. The host
+     * page needs a way to say "not here" — and it has to leave nothing behind,
+     * or the next mount is refused by the once-only guard.
+     */
+    function destroy() {
+      window.removeEventListener("resize", layout);
+      window.removeEventListener("message", onMessage);
+      if (bubble) bubble.remove();
+      frame.remove();
+      launcher.remove();
+      var style = document.getElementById("signalo-style");
+      if (style) style.remove();
+      document.removeEventListener("DOMContentLoaded", mount);
+      delete window.__signaloWidgetLoaded;
+      if (window.Signalo && window.Signalo.destroy === destroy) delete window.Signalo;
+    }
+
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", mount);
     } else {
       mount();
     }
 
+    // The host page's handle on the widget. `destroy` is the one a
+    // single-page site needs: without it the launcher outlives the route that
+    // mounted it and follows the visitor onto every page after.
     window.Signalo = {
       open: function () { setOpen(true); },
       close: function () { setOpen(false); },
       toggle: function () { setOpen(!open); },
+      destroy: destroy,
       config: config,
+      /**
+       * Switch language in place.
+       *
+       * The panel is a separate document, so its words do not change just
+       * because the host page's did — it has to be sent to the new URL. The
+       * launcher's own labels come from the config, which is re-fetched.
+       */
+      setLanguage: function (code) {
+        if (!code || code === lang) return;
+        lang = code;
+        frame.src = frameUrl();
+        fetch(configUrl(), { cache: "no-store", headers: { "ngrok-skip-browser-warning": "true" } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (body) {
+            if (!body || !body.ok) return;
+            config.labelOpen = body.config.labelOpen;
+            config.labelClose = body.config.labelClose;
+            config.launcherLabel = body.config.launcherLabel;
+            hasLabel = Boolean(config.launcherLabel);
+            paintLauncher();
+            labelLauncher();
+          })
+          .catch(function () { /* the panel already switched; labels can wait */ });
+      },
     };
   }
 
   // Look comes from the dashboard; if it cannot be reached the widget still works.
-  fetch(origin + "/api/widget/" + encodeURIComponent(key) + "?t=" + Date.now(), {
+  fetch(configUrl(), {
     cache: "no-store",
     // ngrok's free tier answers browser requests with an HTML interstitial —
     // a 200 that is not our JSON — which silently reverted every page to the

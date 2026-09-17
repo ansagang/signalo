@@ -272,7 +272,8 @@
         "playground": {
           "placeholder": "Test a message…",
           "title": "Try it",
-          "help": "Real answers from your real catalogue. Saved under Conversations as a playground chat."
+          "help": "Real answers from your real catalogue. Saved under Conversations as a playground chat.",
+          "emptyPrompt": "Ask {name} anything a customer might ask."
         },
         "saved": "Saved",
         "delete": "Delete",
@@ -570,7 +571,26 @@
           "glow": "Glow around the orb",
           "glowHint": "A soft halo that breathes. Turn it off against a light background.",
           "accent2": "Second colour",
-          "accent2Hint": "The colour that sweeps through the orb. Leave it matching the first and one is derived for you."
+          "accent2Hint": "The colour that sweeps through the orb. Leave it matching the first and one is derived for you.",
+          "panel": "The chat window",
+          "panelHint": "How the dialog itself is laid out once it opens.",
+          "header": "Header",
+          "headerFull": "Orb and name",
+          "headerCompact": "Name only",
+          "headerHidden": "None",
+          "density": "Spacing",
+          "densityCosy": "Cosy",
+          "densityCompact": "Compact",
+          "corners": "Corners",
+          "starters": "Suggested questions",
+          "startersPlaceholder": "Do you have a table for tonight?\nHow much is a manicure?\nWhere are you?",
+          "startersHint": "One per line, up to four. Shown as buttons until the customer writes something — an empty chat is the main reason people close it.",
+          "language": "Language",
+          "languageAuto": "Follow the visitor",
+          "languageHint": "The window's own words — placeholder, buttons, notices. The assistant already replies in whatever language the customer writes, whichever you pick here.",
+          "labelNone": "No label — just the orb",
+          "labelCustom": "Write my own…",
+          "labelPresetHint": "Shown in each visitor's own language."
         },
         "connected": "Receiving",
         "notConnected": "Not connected",
@@ -1386,5 +1406,43 @@
         "December"
       ]
     }
+  },
+  "widget": {
+    "placeholder": "Type a message…",
+    "send": "Send",
+    "close": "Close chat",
+    "open": "Open chat",
+    "emptyPrompt": "Ask {name} anything.",
+    "orderRecorded": "Order recorded — {total} {currency}",
+    "handedOver": "Handed to a colleague",
+    "handedOverWhy": "Handed to a colleague — {reason}",
+    "working": "Working",
+    "tools": {
+      "create_order": "Recording the order",
+      "capture_contact": "Saving contact details",
+      "request_human": "Bringing in a colleague",
+      "check_availability": "Checking free times",
+      "book_appointment": "Making the booking",
+      "reschedule_appointment": "Moving the booking",
+      "cancel_appointment": "Cancelling the booking",
+      "show_items": "Finding what we have"
+    },
+    "unreachable": "Could not reach the assistant.",
+    "offline": "Currently offline",
+    "offlineHint": "Please try again later.",
+    "textOnly": "I can only read text for now — please type your message.",
+    "wentWrong": "Sorry, something went wrong. A colleague will follow up.",
+    "labels": {
+      "chat": "Chat with us",
+      "help": "Need help?",
+      "ask": "Ask us anything",
+      "message": "Message us",
+      "book": "Book now",
+      "price": "Ask about prices"
+    },
+    "poweredBy": "Powered by Signalo",
+    "statusAssistant": "Assistant is answering",
+    "statusHuman": "A person is answering",
+    "statusPaused": "Assistant is paused — a person will reply"
   }
 }

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   BotIcon as BotGlyph, SparklesIcon, MessageCircleIcon, HeadsetIcon, ShoppingBagIcon,
   ScissorsIcon, HeartIcon, StarIcon, ZapIcon, CoffeeIcon, GemIcon, FlowerIcon,
-  WrenchIcon, PackageIcon, SmileIcon, CrownIcon, LeafIcon, RocketIcon,
+  WrenchIcon, PackageIcon, SmileIcon, CrownIcon, LeafIcon, RocketIcon, BanIcon,
 } from "lucide-react";
 
 /**
@@ -16,17 +16,15 @@ import {
  * the icon can never drift out of step with the rest of the widget.
  */
 
-/** Readable ink for a given background — accents range from near-white to near-black. */
-export function inkOn(hex) {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex || "");
-  if (!m) return "#000";
-  let h = m[1];
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
-  const lin = (c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return luminance > 0.45 ? "#0a0a0c" : "#ffffff";
-}
+/**
+ * Readable ink for a given background.
+ *
+ * Re-exported so existing imports keep working; the rule itself lives with
+ * the rest of the widget's colour maths, where it is tested.
+ */
+import { inkOn } from "@/lib/widget-theme";
+export { inkOn };
+
 export const ICON_SHAPES = {
   bot: BotGlyph,
   sparkles: SparklesIcon,
@@ -46,12 +44,17 @@ export const ICON_SHAPES = {
   crown: CrownIcon,
   leaf: LeafIcon,
   rocket: RocketIcon,
+  none: false,
 };
 
 export const SHAPE_KEYS = Object.keys(ICON_SHAPES);
 
 export default function BotIcon({ shape, accent = "#c9ced6", size = 36, className, rounded = "rounded-button", bare }) {
-  const Shape = ICON_SHAPES[shape] || ICON_SHAPES.bot;
+  const Shape = ICON_SHAPES[shape];
+
+  // "No icon" means no icon — not an empty coloured plate where one used to
+  // be. Rendering nothing lets the layout close up around it.
+  if (shape === "none" || !Shape) return null;
 
   return (
     <span
@@ -86,7 +89,7 @@ export function BotIconPicker({ shape = "bot", accent = "#c9ced6", onChange, cla
             )}
             style={active ? { background: accent, color: inkOn(accent) } : undefined}
           >
-            <Shape className="size-4" />
+            {Shape ? <Shape className="size-4" /> : <BanIcon className="size-4 opacity-60" />}
           </button>
         );
       })}

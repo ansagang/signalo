@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { tzForUser } from "@/lib/timezone";
 import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
+import { channelStrings } from "@/lib/widget-language";
 import {
   sendInstagramText, sendInstagramImage, markSeenAndTyping, verifySignature,
   readMessage, hostFor,
@@ -116,7 +117,7 @@ export async function POST(request, { params }) {
   // A voice note, a reel share or a sticker still deserves an answer.
   if (!text) {
     await send({
-      text: "Пока я понимаю только текст — напишите, пожалуйста, сообщением. / I can only read text for now, so please type your message.",
+      text: (await channelStrings(supabase, channel.user_id, null)).textOnly,
     });
     return ok();
   }
@@ -205,7 +206,7 @@ export async function POST(request, { params }) {
     if (reply?.trim()) await send({ text: reply });
   } catch (err) {
     await send({
-      text: "Извините, что-то пошло не так. Коллега свяжется с вами. / Sorry, something went wrong — a colleague will follow up.",
+      text: (await channelStrings(supabase, channel.user_id, null)).wentWrong,
     });
     console.error("instagram webhook", err);
   }

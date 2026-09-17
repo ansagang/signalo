@@ -132,10 +132,14 @@ export async function touchConversation(supabase, conversationId, patch = {}) {
 
 export async function updateConversation(supabase, userId, id, updates) {
   const allowed = {};
-  for (const key of ["status", "handoff", "handoff_at", "classification", "customer_name"]) {
+  for (const key of ["status", "handoff", "handoff_at", "handoff_released_at", "classification", "customer_name"]) {
     if (updates[key] !== undefined) allowed[key] = updates[key];
   }
   if (allowed.status === "resolved") allowed.resolved_at = new Date().toISOString();
+
+  // Handing a conversation back is a decision the assistant has to respect,
+  // so it is recorded whichever button did it.
+  if (allowed.handoff === false) allowed.handoff_released_at = new Date().toISOString();
 
   const { error } = await supabase
     .from("conversations")

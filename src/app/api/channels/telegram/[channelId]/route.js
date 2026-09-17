@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { ensureConversation, runChatToString } from "@/lib/ai/engine";
 import { tzForUser } from "@/lib/timezone";
 import { handoffState, releaseHandoff } from "@/lib/ai/handoff";
+import { channelStrings } from "@/lib/widget-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -174,7 +175,7 @@ export async function POST(request, { params }) {
     if (reply?.trim()) await send({ text: reply });
   } catch (err) {
     await send({
-      text: "Извините, что-то пошло не так. Коллега свяжется с вами. / Sorry, something went wrong — a colleague will follow up.",
+      text: (await channelStrings(supabase, channel.user_id, message.from?.language_code)).wentWrong,
     });
     console.error("telegram webhook", err);
   }

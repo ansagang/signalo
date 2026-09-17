@@ -164,6 +164,59 @@ bucket (5 MB cap, raster types only — SVG is refused because it can carry
 script). Uploads are namespaced by user id. The assistant calls `show_items` to
 put picture cards in the chat; the widget renders them inline.
 
+## The widget
+
+`public/widget.js` injects a launcher and an iframe pointing at `/c/<public
+key>`. Everything about the look comes from `channels.config`, fetched at
+runtime, so changing it never means editing the snippet on a seller's site.
+
+Colours are **not** taken as given. `src/lib/widget-theme.js` turns the stored
+config into a finished palette: text is held to 7:1 against its background,
+the accent's ink is whichever of black or white actually wins, and values a
+seller typed by hand are pulled back toward something readable while keeping
+their hue. `/api/widget/[key]` runs it once and every consumer — launcher,
+greeting bubble, panel, dashboard preview — reads the result, so they cannot
+drift apart. `node scripts/test-widget-theme.mjs` asserts that no combination
+of the dashboard's own colour pickers can produce an unreadable panel.
+
+Two different languages meet on a seller's site. The assistant already matches
+whatever the customer writes — that is the persona's `language` setting. The
+widget's own words (placeholder, buttons, notices, the launcher label) are
+resolved separately in `src/lib/widget-language.js`, best evidence first:
+what the host page asked for (`data-lang` on the script tag, or
+`Signalo.setLanguage(code)`), then a language the seller pinned, then the
+`lang` cookie, then `Accept-Language`, then the seller's own language, then
+English.
+
+The host-page override exists because a site with its own language switcher
+knows which language the visitor is reading *right now*, and the panel is a
+separate document — changing a cookie does nothing to a frame that has already
+loaded. `Signalo.setLanguage(code)` re-points the frame and re-fetches the
+launcher's labels, no reload. Launcher labels stored as
+`preset:<key>` are translated per visitor; anything typed by hand is shown
+verbatim. `node scripts/test-widget-language.mjs` covers the ordering.
+
+`window.Signalo.destroy()` takes the widget off the page. A single-page host
+has to call it on unmount — without it the launcher outlives the route that
+mounted it, which is what `src/app/(landing)/demo-widget.jsx` exists to show.
+
+The header says who is answering, not who the assistant is called — on most
+accounts the persona shares the business name, so it read it out twice. The
+three states are the assistant answering, a colleague answering (the panel
+learns this the moment a reply comes back as JSON rather than a stream), and
+the assistant paused because the account has run out of credits.
+
+`conversations.handoff_released_at` makes an agent's decision stick. Clearing
+`handoff` was enough for the assistant to start replying again but not enough
+for it to stop escalating: the transcript still ended with "a colleague will
+help", so it called `request_human` on the customer's very next message and
+undid the hand-back before anyone saw it. The tool now refuses until the
+assistant has actually replied once, and the prompt says why.
+
+The panel closes itself by posting `{ type: "signalo:close" }` to the parent.
+That is the only way out on a phone, where the panel fills the screen and the
+launcher is hidden behind it.
+
 ## Instagram DMs
 
 Instagram messaging runs on the same Meta app as WhatsApp. The seller's
