@@ -120,7 +120,7 @@ export default async function LandingPage() {
                 key={demo.label}
                 label={demo.label}
                 // Three shades of the logo's own silver, not three unrelated colours.
-                accent={["#c9ced6", "#9aa2ae", "#e4e8ee"][i] || "#c9ced6"}
+                accent={["#a855f7", "#3b82f6", "#00d26a"][i] || "#c9ced6"}
                 turns={demo.turns}
               />
             ))}

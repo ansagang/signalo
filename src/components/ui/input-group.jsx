@@ -14,7 +14,7 @@ const inputGroupVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent h-10 text-sm border border-secondary-transparent has-[:focus]:border-secondary/50",
-        filled: "border border-secondary-transparent2 bg-secondary-transparent2 has-[:focus]:border-secondary/50",
+        filled: "rounded-button border border-secondary-transparent2 bg-secondary-transparent2 focus:border-secondary/50",
       },
     },
     defaultVariants: {
@@ -57,6 +57,26 @@ const inputGroupAddonVariants = cva(
     },
   }
 )
+
+const inputGroupInputVariants = cva(
+  "flex w-full h-13 py-3 px-4 text-input text-fg [color-scheme:dark] placeholder:text-muted transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+  {
+    variants: {
+      variant: {
+        default: "border-0 bg-transparent focus-visible:border-0 h-full",
+        filled: "border-0 bg-transparent focus-visible:border-0 h-full rounded-button border border-secondary-transparent2 bg-secondary-transparent2 focus:border-secondary/50",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+// className={cn(
+//         inputGroupInputVariants({variant}),
+//         className
+//       )}
 
 function InputGroupAddon({
   className,

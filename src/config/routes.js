@@ -12,7 +12,8 @@ export const routes = [
             '/dashboard/channels',
             '/dashboard/business',
             '/dashboard/billing',
-            '/dashboard/account'
+            '/dashboard/account',
+            '/register/setup'
         ]
     },
     {

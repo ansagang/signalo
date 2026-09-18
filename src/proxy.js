@@ -75,7 +75,7 @@ export async function proxy(request) {
     }
   }
 
-  if (pathname.startsWith("/login")) {
+  if (pathname.startsWith("/login") || pathname === "/register") {
     const { data: user } = await getUser();
 
     if (user) {

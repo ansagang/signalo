@@ -40,7 +40,7 @@ export default function RegisterForm({ language }) {
       // Some projects require an emailed confirmation before a session exists.
       if (res?.confirm) return setConfirm(true);
       showSuccess(t.welcome);
-      router.push("/dashboard/setup");
+      router.push("/register/setup");
     });
   }
 
@@ -80,7 +80,7 @@ export default function RegisterForm({ language }) {
       </Field>
 
       <Field label={t.fields.password.label}>
-        <InputGroup>
+        <InputGroup variant="filled">
           <InputGroupInput
             name="password"
             type={hidden ? "password" : "text"}

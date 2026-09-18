@@ -590,7 +590,8 @@
           "languageHint": "The window's own words — placeholder, buttons, notices. The assistant already replies in whatever language the customer writes, whichever you pick here.",
           "labelNone": "No label — just the orb",
           "labelCustom": "Write my own…",
-          "labelPresetHint": "Shown in each visitor's own language."
+          "labelPresetHint": "Shown in each visitor's own language.",
+          "center": "Centre"
         },
         "connected": "Receiving",
         "notConnected": "Not connected",
@@ -640,7 +641,9 @@
           }
         },
         "submit": "Sign in",
-        "forgotPassword": "Forgot password?"
+        "forgotPassword": "Forgot password?",
+        "toRegister": "Register",
+        "noAccount": "You don't have an account?"
       },
       "register": {
         "meta": {
@@ -1228,7 +1231,11 @@
         "nothing": {
           "title": "Nothing we could use on that page",
           "body": "We read it, but found no prices, opening hours or policies. Try a page that lists what you sell — a Prices, Menu or Services page usually works best."
-        }
+        },
+        "stepLabel": "Last step",
+        "expectLabel": "We'll look for",
+        "selectAll": "Select all",
+        "clearAll": "Clear"
       }
     },
     "buttons": {},

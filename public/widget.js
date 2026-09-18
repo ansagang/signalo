@@ -140,7 +140,26 @@
     };
     for (var k in over) if (over[k] !== undefined && over[k] !== "") config[k] = over[k];
 
-    var side = config.position === "left" ? "left" : "right";
+    // Anything unrecognised is a corner, not the middle: a stray value should
+    // not park the launcher over the page's own content.
+    var side =
+      config.position === "left" ? "left"
+      : config.position === "center" ? "center"
+      : "right";
+    var centred = side === "center";
+
+    /**
+     * Where a fixed element sits along the bottom edge.
+     *
+     * Centring cannot use `transform`, because the launcher already animates
+     * its own transform on hover and on open — one would wipe out the other,
+     * and the button would jump half its width sideways under the cursor. The
+     * shift lives in a custom property that the hover rules compose with.
+     */
+    function anchor(px) {
+      if (!centred) return [side + ":" + px + "px", "--sg-shift:0px"];
+      return ["left:50%", "--sg-shift:-50%"];
+    }
     var offset = parseInt(config.offset, 10) || 20;
     var size = parseInt(config.size, 10) || 56;
     var radius = parseInt(config.radius, 10) || 20;
@@ -167,7 +186,11 @@
       // The halo breathes rather than pulses: a heartbeat in the corner of the
       // eye is distracting, a slow swell reads as alive.
       "@keyframes sg-breathe{0%,100%{opacity:.45}50%{opacity:.8}}",
-      "@keyframes sg-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}",
+      // `animation-fill-mode:both` makes the last keyframe stick, so a bare
+      // `transform:none` here threw a centred bubble half its width to the right
+      // the moment it finished appearing.
+      "@keyframes sg-rise{from{opacity:0;transform:translateX(var(--sg-shift,0)) translateY(8px)}",
+      "to{opacity:1;transform:translateX(var(--sg-shift,0))}}",
       
       // border-radius matters even though the button is transparent: the
       // browser's own focus ring follows the button box, and a square ring
@@ -175,12 +198,15 @@
       ".sg-orb{position:relative;display:inline-flex;align-items:center;justify-content:center;border:none;",
       "background:transparent;cursor:pointer;padding:0;border-radius:999px;",
       "-webkit-tap-highlight-color:transparent;outline:none;",
+      "transform:translateX(var(--sg-shift,0));",
       "transition:transform .25s cubic-bezier(.2,.9,.3,1.2)}",
       // Keyboard users still need to see where they are, so the ring is
       // replaced rather than removed.
       ".sg-orb:focus-visible{outline:2px solid " + accent2 + ";outline-offset:3px}",
-      ".sg-orb:hover{transform:scale(1.05)}",
-      ".sg-orb:active{transform:scale(.97)}",
+      // Composed with the shift, never replacing it — a centred launcher that
+      // dropped its translate on hover jumped half its width sideways.
+      ".sg-orb:hover{transform:translateX(var(--sg-shift,0)) scale(1.05)}",
+      ".sg-orb:active{transform:translateX(var(--sg-shift,0)) scale(.97)}",
       ".sg-orbwrap{position:relative;display:inline-block;flex:none}",
       ".sg-ball{position:absolute;inset:0;border-radius:50%;overflow:hidden;isolation:isolate}",
       ".sg-swirl{position:absolute;inset:-35%;opacity:.85;will-change:transform;transform:translateZ(0);",
@@ -208,13 +234,17 @@
 
     if (orbMode) {
       launcher.style.cssText = [
-        "position:fixed", "bottom:" + offset + "px", side + ":" + offset + "px",
+        "position:fixed",
+      ].concat(anchor(offset), [
+        "bottom:" + offset + "px",
         "z-index:2147483646",
         "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
-      ].join(";");
+      ]).join(";");
     } else {
       launcher.style.cssText = [
-        "position:fixed", "bottom:" + offset + "px", side + ":" + offset + "px",
+        "position:fixed",
+      ].concat(anchor(offset), [
+        "bottom:" + offset + "px",
         "min-width:" + size + "px", "height:" + size + "px",
         "border-radius:" + Math.round(size / 2) + "px", "border:none", "cursor:pointer",
         "background:" + config.accent, "box-shadow:0 6px 24px rgba(0,0,0,.28)",
@@ -222,7 +252,8 @@
         "justify-content:center", "transition:transform .18s ease", "padding:0 " + (hasLabel ? "18px" : "0"),
         "font:600 14px/1 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
         "color:" + inkOn(config.accent),
-      ].join(";");
+        "transform:translateX(var(--sg-shift,0))",
+      ]).join(";");
     }
 
     // The same shapes the dashboard offers. Generated from lucide-react by
@@ -350,8 +381,9 @@
     }
 
     if (!orbMode) {
-      launcher.onmouseenter = function () { launcher.style.transform = "scale(1.06)"; };
-      launcher.onmouseleave = function () { launcher.style.transform = "scale(1)"; };
+      var shift = centred ? "translateX(-50%) " : "";
+      launcher.onmouseenter = function () { launcher.style.transform = shift + "scale(1.06)"; };
+      launcher.onmouseleave = function () { launcher.style.transform = shift + "scale(1)"; };
     }
 
     var frame = document.createElement("iframe");
@@ -365,8 +397,8 @@
       "box-shadow:0 1px 0 " + rgba(config.panelBorder || "#2a2a32", 1) +
         ",0 18px 48px rgba(0,0,0,.28),0 48px 90px rgba(0,0,0,.22)",
       "border-radius:" + radius + "px",
-      "opacity:0", "transform:translateY(12px) scale(.97)",
-      "transform-origin:" + (side === "right" ? "bottom right" : "bottom left"),
+      "opacity:0", "transform:translateX(var(--sg-shift,0)) translateY(12px) scale(.97)",
+      "transform-origin:" + (side === "right" ? "bottom right" : side === "left" ? "bottom left" : "bottom center"),
       "transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.15)",
     ].join(";");
 
@@ -378,7 +410,8 @@
       // It used to be hardcoded white with black text, which hung off a dark
       // widget like a sticker. It is the panel's own material now.
       bubble.style.cssText = [
-        "position:fixed", "bottom:" + (offset + size + 12) + "px", side + ":" + offset + "px",
+        "position:fixed", "bottom:" + (offset + size + 12) + "px",
+      ].concat(anchor(offset), [
         "max-width:250px", "padding:10px 14px",
         "border-radius:" + Math.min(radius, 18) + "px",
         "background:" + (config.panelSurface || "#1c1c22"),
@@ -388,7 +421,7 @@
         "font:500 13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif",
         "z-index:2147483646", "cursor:pointer",
         "animation:sg-rise .3s cubic-bezier(.2,.9,.3,1.1) both",
-      ].join(";");
+      ]).join(";");
       bubble.addEventListener("click", function () { setOpen(true); });
     }
 
@@ -402,20 +435,47 @@
       launcher.style.display = open && narrow ? "none" : "";
 
       if (narrow) {
+        // Full screen has no side to hang off, so every position collapses to
+        // the same sheet.
         frame.style.width = "100vw";
         frame.style.height = "100dvh";
         frame.style.bottom = "0";
-        frame.style[side] = "0";
+        frame.style.left = "0";
+        frame.style.right = "auto";
+        frame.style.marginLeft = "0";
+        // Resizing a centred widget down to phone width would otherwise keep
+        // the -50% and push the full-screen sheet half off the left edge.
+        frame.style.setProperty("--sg-shift", "0px");
         frame.style.borderRadius = "0";
         frame.style.maxWidth = "100vw";
       } else {
         frame.style.width = "384px";
         frame.style.height = "min(640px, calc(100dvh - " + (offset * 2 + size + 16) + "px))";
         frame.style.bottom = offset + size + 12 + "px";
-        frame.style[side] = offset + "px";
         frame.style.borderRadius = radius + "px";
         frame.style.maxWidth = "calc(100vw - " + offset * 2 + "px)";
+
+        // `frame.style[side]` cannot work for the middle — there is no `center`
+        // CSS property — so the shift goes through the same custom property
+        // the open and close transitions already compose with.
+        if (centred) {
+          frame.style.left = "50%";
+          frame.style.right = "auto";
+          frame.style.setProperty("--sg-shift", "-50%");
+        } else {
+          frame.style[side] = offset + "px";
+          frame.style[side === "left" ? "right" : "left"] = "auto";
+          frame.style.setProperty("--sg-shift", "0px");
+        }
       }
+      paintFrameTransform();
+    }
+
+    /** The panel's resting or hidden position, with the centring kept. */
+    function paintFrameTransform() {
+      frame.style.transform = open
+        ? "translateX(var(--sg-shift,0))"
+        : "translateX(var(--sg-shift,0)) translateY(12px) scale(.97)";
     }
 
     function setOpen(next, byVisitor) {
@@ -426,11 +486,11 @@
         // end state and nothing appears to move.
         requestAnimationFrame(function () {
           frame.style.opacity = "1";
-          frame.style.transform = "none";
+          paintFrameTransform();
         });
       } else {
         frame.style.opacity = "0";
-        frame.style.transform = "translateY(12px) scale(.97)";
+        paintFrameTransform();
         setTimeout(function () { if (!open) frame.style.display = "none"; }, 220);
       }
       paintLauncher();

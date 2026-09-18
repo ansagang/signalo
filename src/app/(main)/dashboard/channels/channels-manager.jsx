@@ -131,12 +131,16 @@ const WIDGET_DEFAULTS = {
  * thing to ask of a salon owner than "pick one". An empty second colour means
  * the widget derives it from the first — right for a single-colour brand.
  */
+/** Anything else is a corner; the middle has to be asked for. */
+const POSITIONS = ["left", "center", "right"];
+
 const ORB_PRESETS = [
   { key: "silver",  accent: "#c9ced6", accent2: "" },
   { key: "aurora",  accent: "#5ce1e6", accent2: "#a78bfa" },
   { key: "sunset",  accent: "#ff8a3d", accent2: "#ff4d8d" },
   { key: "ocean",   accent: "#3b82f6", accent2: "#22d3ee" },
   { key: "orchid",  accent: "#a855f7", accent2: "#ec4899" },
+  { key: "line",  accent: "#00d26a", accent2: "#00d26a" },
   { key: "ink",     accent: "#3a3a44", accent2: "#8b8b96" },
 ];
 
@@ -894,12 +898,13 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup, widget
               <div>
                 <p className="text-[13px] font-medium text-fg mb-2">{p.look.placement}</p>
                 <div className="flex gap-3 flex-wrap">
-                  <Field label={p.look.position} className="flex-1 min-w-[150px]">
+                  <Field label={p.look.position} className="min-w-[250px]">
                     <Segmented
-                      value={config.position === "left" ? "left" : "right"}
+                      value={POSITIONS.includes(config.position) ? config.position : "right"}
                       onChange={(v) => setCfg("position", v)}
                       options={[
                         { value: "left", label: p.look.left },
+                        { value: "center", label: p.look.center },
                         { value: "right", label: p.look.right },
                       ]}
                     />
@@ -1121,7 +1126,21 @@ function ChannelCard({ channel, personas, p, res, base, signup, igSignup, widget
  */
 function WidgetPreview({ config, channel, p, widgetWords }) {
   const t = panelTheme(config);
-  const left = config.position === "left";
+  const position = POSITIONS.includes(config.position) ? config.position : "right";
+  const centred = position === "center";
+  const left = position === "left";
+
+  /**
+   * Where a floating piece sits in the miniature.
+   *
+   * Centring is a transform here rather than a margin because the pieces are
+   * different widths — the launcher, the panel and the greeting bubble all
+   * have to line up on the same axis.
+   */
+  const place = (edge) =>
+    centred
+      ? { left: "50%", transform: "translateX(-50%)" }
+      : { [left ? "left" : "right"]: edge };
   const orb = (config.launcherStyle || "orb") !== "button";
   const header = config.headerStyle || "full";
   const compact = config.density === "compact";
@@ -1161,7 +1180,7 @@ function WidgetPreview({ config, channel, p, widgetWords }) {
             width: 176,
             height: 232,
             bottom: edge + size + 10,
-            [left ? "left" : "right"]: edge,
+            ...place(edge),
           }}
         >
           {header !== "hidden" && (
@@ -1229,7 +1248,7 @@ function WidgetPreview({ config, channel, p, widgetWords }) {
             className="absolute max-w-[140px] px-2 py-1 text-[9px] leading-snug shadow"
             style={{
               bottom: edge + size + 248,
-              [left ? "left" : "right"]: edge,
+              ...place(edge),
               background: t.surface,
               color: t.fg,
               border: `1px solid ${t.border}`,
@@ -1248,7 +1267,7 @@ function WidgetPreview({ config, channel, p, widgetWords }) {
               label &&
                 "px-2 py-1 pr-3 rounded-full bg-[rgba(20,20,24,.72)] backdrop-blur-sm shadow-lg",
             )}
-            style={{ bottom: edge, [left ? "left" : "right"]: edge }}
+            style={{ bottom: edge, ...place(edge) }}
           >
             <Orb
               accent={t.accent}
@@ -1269,7 +1288,7 @@ function WidgetPreview({ config, channel, p, widgetWords }) {
             style={{
               background: t.accent, color: t.accentInk, height: size, minWidth: size,
               padding: label ? "0 10px" : 0,
-              bottom: edge, [left ? "left" : "right"]: edge,
+              bottom: edge, ...place(edge),
             }}
           >
             <span className="text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 px-0.5">

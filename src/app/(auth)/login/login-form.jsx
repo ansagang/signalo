@@ -91,16 +91,22 @@ export default function LoginForm({ language }) {
                     </InputGroupAddon>
                 </InputGroup>
             </Field>
-            <Button size="lg" className='w-full' type="submit" disabled={isPending || !formData.email || !formData.password}>
+            <Button size="lg" className='w-full mb-5' type="submit" disabled={isPending || !formData.email || !formData.password}>
                 {isPending ? (
                     <LoaderIcon className="animate-spin" />
                 ) : (
                     t.submit
                 )}
             </Button>
-            <Link href="/forgot-password" className="text-center block text-secondary">
-                {t.forgotPassword}
-            </Link>
+            <p className="text-[13px] text-secondary text-center">
+                <Link href="/forgot-password" className="text-center block text-secondary">
+                    {t.forgotPassword}
+                </Link>
+            </p>
+            <p className="text-[13px] text-secondary text-center">
+                {t.noAccount}{" "}
+                <Link href="/register" className="text-accent hover:underline">{t.toRegister}</Link>
+            </p>
         </form>
     );
 }
